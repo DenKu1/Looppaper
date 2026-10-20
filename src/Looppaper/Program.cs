@@ -2,6 +2,7 @@ using Looppaper.Core;
 using Looppaper.Core.CommandLine;
 using Looppaper.Core.Configuration;
 using Looppaper.Core.Logging;
+using Looppaper.Desktop;
 
 namespace Looppaper;
 
@@ -29,8 +30,22 @@ internal static class Program
         options.ApplyTo(config);
         ConfigValidator.Normalize(config, log);
 
-        log.Info($"Looppaper {typeof(Program).Assembly.GetName().Version} starting; config {configPath}; overrides {options}");
+        log.Info($"Looppaper {typeof(Program).Assembly.GetName().Version} starting on {Environment.OSVersion.VersionString}; config {configPath}; overrides {options}");
         log.Info($"Collection {config.ResolveCollectionFolder()}, mode {config.Mode}, interval {config.IntervalSeconds}s, scaling {config.Scaling}");
-        return 0;
+
+        var app = new WallpaperApp(config, log);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            log.Error("Unhandled exception; restoring wallpaper", e.ExceptionObject as Exception);
+            WallpaperRestorer.Restore(log);
+        };
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => WallpaperRestorer.Restore(log);
+        Console.CancelKeyPress += (_, e) =>
+        {
+            e.Cancel = true;
+            app.RequestStop();
+        };
+
+        return app.Run();
     }
 }
