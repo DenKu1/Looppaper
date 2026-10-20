@@ -7,7 +7,7 @@ namespace Looppaper.Desktop;
 /// <summary>Receives the wallpaper window's messages on the UI thread.</summary>
 internal interface IWallpaperWindowHandler
 {
-    void OnPaint(IntPtr hdc, in RECT client);
+    void OnPaint(IntPtr hdc, in RECT area);
 
     /// <summary>Called for messages the window does not handle itself. Return true when handled.</summary>
     bool OnMessage(uint msg, IntPtr wParam, IntPtr lParam);
@@ -157,8 +157,7 @@ internal sealed unsafe class WallpaperWindow
                 var hdc = User32.BeginPaint(hwnd, out var ps);
                 try
                 {
-                    User32.GetClientRect(hwnd, out var client);
-                    _handler.OnPaint(hdc, client);
+                    _handler.OnPaint(hdc, ps.rcPaint);
                 }
                 finally
                 {

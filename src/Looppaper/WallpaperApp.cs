@@ -1,7 +1,9 @@
 using Looppaper.Core.Configuration;
 using Looppaper.Core.Logging;
+using Looppaper.Core.Media;
 using Looppaper.Desktop;
 using Looppaper.Native;
+using Looppaper.Rendering;
 
 namespace Looppaper;
 
@@ -11,7 +13,10 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
     private readonly LooppaperConfig _config;
     private readonly ILog _log;
     private readonly IntPtr _backgroundBrush;
+    private readonly FrameCache _frame = new();
     private WallpaperWindow? _window;
+    private DesktopHost? _host;
+    private bool _shutDown;
 
     public WallpaperApp(LooppaperConfig config, ILog log)
     {
@@ -23,17 +28,21 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
     public int Run()
     {
         WallpaperRestorer.Capture(_log);
-        var host = DesktopHost.Find(_log);
-        if (host is null)
+        _host = DesktopHost.Find(_log);
+        if (_host is null)
         {
             return 1;
         }
 
-        _window = WallpaperWindow.Create(host, this, _log);
+        _window = WallpaperWindow.Create(_host, this, _log);
         if (_window is null)
         {
             return 1;
         }
+
+        var scanner = new MediaScanner(_log);
+        var pictures = scanner.Scan(_config.ResolveCollectionFolder(), MediaKind.Picture, _config.MaxPictureSizeMb);
+        ShowPicture(_config.ResolvePicture() ?? pictures.FirstOrDefault());
 
         WallpaperWindow.RunMessageLoop();
         Shutdown();
@@ -47,9 +56,16 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
         _window?.RequestClose();
     }
 
-    public void OnPaint(IntPtr hdc, in RECT client)
+    public void OnPaint(IntPtr hdc, in RECT area)
     {
-        User32.FillRect(hdc, client, _backgroundBrush);
+        if (_frame.HasFrame)
+        {
+            _frame.Paint(hdc, area);
+        }
+        else
+        {
+            User32.FillRect(hdc, area, _backgroundBrush);
+        }
     }
 
     public bool OnMessage(uint msg, IntPtr wParam, IntPtr lParam) => false;
@@ -60,8 +76,30 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
         Shutdown();
     }
 
+    private void ShowPicture(string? path)
+    {
+        var bounds = _host!.ChildBounds();
+        var monitors = Monitors.RelativeToVirtualScreen();
+        var hbitmap = PictureRenderer.Render(path, bounds.Width, bounds.Height, monitors, _config.Scaling, _config.ResolveBackgroundColor(), _log);
+        if (hbitmap == IntPtr.Zero)
+        {
+            return;
+        }
+
+        _frame.Swap(hbitmap);
+        _window!.Invalidate();
+        _log.Info(path is null ? "Showing background color" : $"Showing {path} on {monitors.Count} monitor(s): {string.Join(", ", monitors)}");
+    }
+
     private void Shutdown()
     {
+        if (_shutDown)
+        {
+            return;
+        }
+
+        _shutDown = true;
+        _frame.Dispose();
         Gdi32.DeleteObject(_backgroundBrush);
         WallpaperRestorer.Restore(_log);
         _log.Info("Looppaper stopped");
