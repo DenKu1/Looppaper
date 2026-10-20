@@ -486,3 +486,4 @@ publish/
 artifacts/
 .claude/
 CLAUDE.md
+!src/Looppaper/Properties/PublishProfiles/win-x64.pubxml
