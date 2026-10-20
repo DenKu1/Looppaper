@@ -4,7 +4,37 @@ A lightweight live-wallpaper engine for Windows 10/11 with no UI. Looppaper draw
 folder behind your desktop icons — one fixed picture or a slideshow — and can play a folder of MP3s
 in the background. Everything is configured with a JSON file and command-line switches.
 
-> Status: work in progress. See [docs/EPICS.md](docs/EPICS.md) for the roadmap.
+> Status: Epic 1 (core engine) is done. See [docs/EPICS.md](docs/EPICS.md) for the roadmap.
+
+## Install
+
+No admin rights and no .NET install needed.
+
+1. Download `Looppaper-win-x64.zip` from the latest [build artifact](https://github.com/DenKu1/Looppaper/actions/workflows/build.yml)
+   (or build it yourself, see below) and extract it.
+2. In the extracted folder run:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\install.ps1
+   ```
+
+   This copies `Looppaper.exe` to `%LOCALAPPDATA%\Programs\Looppaper`, creates
+   `%USERPROFILE%\Pictures\Looppaper`, registers Looppaper to start when you sign in, and starts it.
+3. Put `.jpg` / `.jpeg` / `.png` pictures (and optionally `.mp3` music) into `Pictures\Looppaper`.
+   Looppaper rescans the folder at every slideshow step; after editing `config.json`, restart it
+   (`Looppaper.exe --stop`, then start it again).
+
+To remove it: `powershell -ExecutionPolicy Bypass -File .\uninstall.ps1` (add `-RemoveSettings` to
+also delete the config and logs). Your pictures and music are never deleted.
+
+## How it works
+
+Looppaper creates one borderless child window inside Explorer's desktop window, between the
+desktop icons and Windows' own wallpaper (the same technique Lively Wallpaper uses; both the
+Windows 11 24H2+ layout and the older WorkerW layout are supported). Each picture is decoded once,
+scaled for every monitor into a single cached bitmap, and painted with one `BitBlt`; nothing runs
+between slideshow steps. Music plays through the MCI player built into Windows. When Looppaper
+stops, the window is removed and your normal wallpaper is redrawn.
 
 ## Configuration
 
@@ -65,4 +95,8 @@ Requires the .NET 8 SDK (or newer).
 ```powershell
 dotnet build
 dotnet test
+dotnet publish src/Looppaper -p:PublishProfile=win-x64   # -> publish\Looppaper.exe (self-contained, single file)
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
+
+CI (`.github/workflows/build.yml`) builds, tests and uploads `Looppaper-win-x64.zip` (exe + scripts + README) on every push.

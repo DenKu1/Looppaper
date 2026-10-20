@@ -5,6 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
+    <!-- Symbols inside the dlls: readable stack traces in the log, no loose .pdb files in publish/. -->
+    <DebugType Condition="'$(Configuration)' == 'Release'">embedded</DebugType>
     <Version>0.1.0</Version>
     <Authors>DenKu1</Authors>
     <Product>Looppaper</Product>
