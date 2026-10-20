@@ -1,3 +1,4 @@
+using Looppaper.Audio;
 using Looppaper.Core.Configuration;
 using Looppaper.Core.Logging;
 using Looppaper.Desktop;
@@ -16,6 +17,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
     private WallpaperWindow? _window;
     private DesktopHost? _host;
     private PictureController? _pictures;
+    private MusicPlayer? _music;
     private bool _shutDown;
 
     public WallpaperApp(LooppaperConfig config, ILog log)
@@ -43,6 +45,16 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
         _pictures = new PictureController(_config, _log, _window, _host, _frame);
         _pictures.Start();
 
+        if (_config.Music.Enabled)
+        {
+            _music = new MusicPlayer(_config, _window.Handle, _log);
+            _music.Start();
+        }
+        else
+        {
+            _log.Info("Music disabled");
+        }
+
         WallpaperWindow.RunMessageLoop();
         Shutdown();
         return 0;
@@ -68,7 +80,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
     }
 
     public bool OnMessage(uint msg, IntPtr wParam, IntPtr lParam) =>
-        _pictures?.OnMessage(msg, wParam, lParam) == true;
+        _pictures?.OnMessage(msg, wParam, lParam) == true || _music?.OnMessage(msg, wParam, lParam) == true;
 
     public void OnEndSession()
     {
@@ -85,6 +97,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
 
         _shutDown = true;
         _pictures?.Stop();
+        _music?.Stop();
         _frame.Dispose();
         Gdi32.DeleteObject(_backgroundBrush);
         WallpaperRestorer.Restore(_log);

@@ -24,7 +24,7 @@ Tasks:
 - [x] 1.4 Desktop host (WorkerW / Progman parenting, wallpaper restore on exit)
 - [x] 1.5 Picture renderer (decode once, pre-scale per monitor, BitBlt cache)
 - [x] 1.6 Single picture + slideshow (timer, background preparation, empty-folder handling)
-- [ ] 1.7 MP3 playback (Windows MCI, looping playlist, shuffle, volume)
+- [x] 1.7 MP3 playback (Windows MCI, looping playlist, shuffle, volume)
 - [ ] 1.8 Single instance + `--stop`
 - [ ] 1.9 Start on boot (`--install-startup` / `--uninstall-startup`)
 - [ ] 1.10 Easy install (self-contained single-file publish, install/uninstall scripts, CI)
