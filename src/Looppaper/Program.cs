@@ -25,6 +25,11 @@ internal static class Program
         }
 
         var log = new RollingFileLog(AppPaths.LogFile);
+        if (options.Stop)
+        {
+            return Stop(log);
+        }
+
         var configPath = options.ConfigPath is null ? AppPaths.DefaultConfigFile : AppPaths.ExpandPath(options.ConfigPath);
         var config = ConfigLoader.LoadOrCreate(configPath, log);
         options.ApplyTo(config);
@@ -33,7 +38,16 @@ internal static class Program
         log.Info($"Looppaper {typeof(Program).Assembly.GetName().Version} starting on {Environment.OSVersion.VersionString}; config {configPath}; overrides {options}");
         log.Info($"Collection {config.ResolveCollectionFolder()}, mode {config.Mode}, interval {config.IntervalSeconds}s, scaling {config.Scaling}");
 
+        using var instance = SingleInstance.TryClaim();
+        if (instance is null)
+        {
+            log.Info("Another Looppaper is already running; exiting");
+            ConsoleOutput.WriteLine("Looppaper is already running. Use --stop to stop it.");
+            return 3;
+        }
+
         var app = new WallpaperApp(config, log);
+        instance.ListenForStop(app.RequestStop);
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
             log.Error("Unhandled exception; restoring wallpaper", e.ExceptionObject as Exception);
@@ -47,5 +61,19 @@ internal static class Program
         };
 
         return app.Run();
+    }
+
+    private static int Stop(ILog log)
+    {
+        var result = SingleInstance.SignalStop(TimeSpan.FromSeconds(10));
+        var message = result switch
+        {
+            SingleInstance.StopResult.Stopped => "Looppaper stopped.",
+            SingleInstance.StopResult.NotRunning => "Looppaper is not running.",
+            _ => "Looppaper did not stop within 10 seconds.",
+        };
+        log.Info($"--stop: {message}");
+        ConsoleOutput.WriteLine(message);
+        return result == SingleInstance.StopResult.TimedOut ? 1 : 0;
     }
 }
