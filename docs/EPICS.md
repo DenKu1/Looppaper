@@ -20,7 +20,7 @@ Tasks:
 
 - [x] 1.1 Scaffold: solution, projects, `.gitignore`, README, this roadmap
 - [x] 1.2 Configuration + logging (`config.json`, CLI switches, rolling log)
-- [ ] 1.3 Media collection (folder scan, size limits, ordering, shuffle)
+- [x] 1.3 Media collection (folder scan, size limits, ordering, shuffle)
 - [ ] 1.4 Desktop host (WorkerW / Progman parenting, wallpaper restore on exit)
 - [ ] 1.5 Picture renderer (decode once, pre-scale per monitor, BitBlt cache)
 - [ ] 1.6 Single picture + slideshow (timer, background preparation, empty-folder handling)
