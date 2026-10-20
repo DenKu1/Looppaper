@@ -487,3 +487,6 @@ artifacts/
 .claude/
 CLAUDE.md
 !src/Looppaper/Properties/PublishProfiles/win-x64.pubxml
+
+# Local test media (large, not for the repo)
+test_video/
