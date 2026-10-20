@@ -75,7 +75,7 @@ internal sealed unsafe class WallpaperWindow
             host.ExtendedStyle | User32.WS_EX_NOACTIVATE | User32.WS_EX_TOOLWINDOW,
             ClassName,
             "Looppaper",
-            User32.WS_CHILD | User32.WS_CLIPSIBLINGS,
+            User32.WS_CHILD | User32.WS_CLIPSIBLINGS | User32.WS_CLIPCHILDREN,
             bounds.Left,
             bounds.Top,
             bounds.Width,

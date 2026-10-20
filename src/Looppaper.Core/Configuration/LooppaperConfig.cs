@@ -49,24 +49,25 @@ public sealed class LooppaperConfig
 
     public int MaxPictureSizeMb { get; set; } = DefaultMaxPictureSizeMb;
 
-    public MusicConfig Music { get; set; } = new();
+    public VideoConfig Video { get; set; } = new();
 
     /// <summary>Absolute collection folder with environment variables expanded.</summary>
     public string ResolveCollectionFolder() => AppPaths.ExpandPath(CollectionFolder);
 
-    /// <summary>Absolute music folder; falls back to the collection folder.</summary>
-    public string ResolveMusicFolder() =>
-        string.IsNullOrWhiteSpace(Music.Folder) ? ResolveCollectionFolder() : AppPaths.ExpandPath(Music.Folder);
-
     /// <summary>Absolute path of the configured single picture, or null when none is set.</summary>
-    public string? ResolvePicture()
+    public string? ResolvePicture() => ResolveInCollection(Picture);
+
+    /// <summary>Absolute path of the configured video file, or null to use the first video in the collection.</summary>
+    public string? ResolveVideo() => ResolveInCollection(Video.File);
+
+    private string? ResolveInCollection(string? file)
     {
-        if (string.IsNullOrWhiteSpace(Picture))
+        if (string.IsNullOrWhiteSpace(file))
         {
             return null;
         }
 
-        var expanded = Environment.ExpandEnvironmentVariables(Picture.Trim().Trim('"'));
+        var expanded = Environment.ExpandEnvironmentVariables(file.Trim().Trim('"'));
         return Path.IsPathRooted(expanded)
             ? Path.GetFullPath(expanded)
             : Path.GetFullPath(Path.Combine(ResolveCollectionFolder(), expanded));
@@ -76,21 +77,19 @@ public sealed class LooppaperConfig
         RgbColor.TryParse(BackgroundColor, out var color) ? color : RgbColor.Black;
 }
 
-public sealed class MusicConfig
+public sealed class VideoConfig
 {
-    public const int DefaultVolume = 40;
-    public const int DefaultMaxFileSizeMb = 20;
-    public const int MaxFileSizeCapMb = 100;
+    public const int DefaultMaxFileSizeMb = 500;
+    public const int MaxFileSizeCapMb = 4096;
 
+    /// <summary>When true and a video is available, the looping video is the wallpaper instead of pictures.</summary>
     public bool Enabled { get; set; } = true;
 
-    /// <summary>Folder with MP3 files; null means the collection folder.</summary>
-    public string? Folder { get; set; }
+    /// <summary>File name in the collection folder, or a full path; null means the first .mp4 in the collection.</summary>
+    public string? File { get; set; }
 
-    public bool Shuffle { get; set; }
-
-    /// <summary>0..100.</summary>
-    public int Volume { get; set; } = DefaultVolume;
+    /// <summary>0..100; 0 mutes the video.</summary>
+    public int Volume { get; set; }
 
     public int MaxFileSizeMb { get; set; } = DefaultMaxFileSizeMb;
 }

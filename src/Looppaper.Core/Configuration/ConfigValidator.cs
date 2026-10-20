@@ -27,9 +27,9 @@ public static class ConfigValidator
             config.BackgroundColor = color.ToString();
         }
 
-        config.Music ??= new MusicConfig();
-        config.Music.Volume = Clamp(config.Music.Volume, 0, 100, "music.volume", log);
-        config.Music.MaxFileSizeMb = Clamp(config.Music.MaxFileSizeMb, 1, MusicConfig.MaxFileSizeCapMb, "music.maxFileSizeMb", log);
+        config.Video ??= new VideoConfig();
+        config.Video.Volume = Clamp(config.Video.Volume, 0, 100, "video.volume", log);
+        config.Video.MaxFileSizeMb = Clamp(config.Video.MaxFileSizeMb, 1, VideoConfig.MaxFileSizeCapMb, "video.maxFileSizeMb", log);
     }
 
     private static int Clamp(int value, int min, int max, string name, ILog log)

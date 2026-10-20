@@ -5,7 +5,7 @@ namespace Looppaper.Core.Media;
 public enum MediaKind
 {
     Picture,
-    Music,
+    Video,
 }
 
 /// <summary>
@@ -17,7 +17,7 @@ public enum MediaKind
 public sealed class MediaScanner
 {
     public static readonly IReadOnlyList<string> PictureExtensions = [".jpg", ".jpeg", ".png"];
-    public static readonly IReadOnlyList<string> MusicExtensions = [".mp3"];
+    public static readonly IReadOnlyList<string> VideoExtensions = [".mp4"];
 
     public const long BytesPerMb = 1024 * 1024;
 
@@ -31,7 +31,7 @@ public sealed class MediaScanner
     }
 
     public static IReadOnlyList<string> ExtensionsFor(MediaKind kind) =>
-        kind == MediaKind.Picture ? PictureExtensions : MusicExtensions;
+        kind == MediaKind.Picture ? PictureExtensions : VideoExtensions;
 
     public static bool IsSupported(string path, MediaKind kind)
     {
@@ -43,7 +43,7 @@ public sealed class MediaScanner
     public IReadOnlyList<string> Scan(string folder, MediaKind kind, int maxSizeMb)
     {
         var maxBytes = maxSizeMb * BytesPerMb;
-        var label = kind == MediaKind.Picture ? "picture" : "music file";
+        var label = kind == MediaKind.Picture ? "picture" : "video";
 
         IEnumerable<FileInfo> files;
         try

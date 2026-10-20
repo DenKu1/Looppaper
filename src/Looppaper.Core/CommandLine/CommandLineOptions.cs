@@ -13,12 +13,14 @@ public sealed class CommandLineOptions
         Usage: Looppaper.exe [options]
 
           --config <path>        Use this config file instead of %APPDATA%\Looppaper\config.json
-          --folder <path>        Collection folder with pictures (and music)
-          --picture <file>       Show one picture (file name in the collection or full path); implies --mode single
+          --folder <path>        Collection folder with pictures and videos
+          --picture <file>       Show one picture (file name in the collection or full path); implies --mode single and --no-video
           --interval <seconds>   Slideshow interval (5..604800)
           --mode <mode>          slideshow | single
           --shuffle              Shuffle the slideshow
-          --no-music             Do not play music
+          --video <file>         Play this .mp4 looped as the wallpaper (file name in the collection or full path)
+          --no-video             Show pictures even if the collection has a video
+          --volume <0-100>       Video volume (0 = muted)
           --stop                 Stop the running instance and restore the wallpaper
           --install-startup      Start Looppaper when you sign in (current user)
           --uninstall-startup    Remove Looppaper from sign-in startup
@@ -39,7 +41,11 @@ public sealed class CommandLineOptions
 
     public bool Shuffle { get; set; }
 
-    public bool NoMusic { get; set; }
+    public string? Video { get; set; }
+
+    public bool NoVideo { get; set; }
+
+    public int? Volume { get; set; }
 
     public bool Stop { get; set; }
 
@@ -66,10 +72,17 @@ public sealed class CommandLineOptions
             config.Mode = mode;
         }
 
+        if (Video is not null)
+        {
+            config.Video.File = Video;
+            config.Video.Enabled = true;
+        }
+
         if (Picture is not null)
         {
             config.Picture = Picture;
             config.Mode = WallpaperMode.Single;
+            config.Video.Enabled = false;
         }
 
         if (IntervalSeconds is { } interval)
@@ -82,9 +95,14 @@ public sealed class CommandLineOptions
             config.Shuffle = true;
         }
 
-        if (NoMusic)
+        if (NoVideo)
         {
-            config.Music.Enabled = false;
+            config.Video.Enabled = false;
+        }
+
+        if (Volume is { } volume)
+        {
+            config.Video.Volume = volume;
         }
     }
 
@@ -106,7 +124,9 @@ public sealed class CommandLineOptions
         Add("interval", IntervalSeconds);
         Add("mode", Mode);
         Add("shuffle", Shuffle ? true : null);
-        Add("noMusic", NoMusic ? true : null);
+        Add("video", Video);
+        Add("noVideo", NoVideo ? true : null);
+        Add("volume", Volume);
         return parts.Count == 0 ? "(none)" : string.Join(", ", parts);
     }
 }

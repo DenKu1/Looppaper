@@ -43,7 +43,7 @@ Write-Host "Installed to $exe"
 
 $collection = Join-Path $env:USERPROFILE 'Pictures\Looppaper'
 New-Item -ItemType Directory -Force -Path $collection | Out-Null
-Write-Host "Collection folder: $collection (put .jpg/.jpeg/.png pictures and .mp3 music here)"
+Write-Host "Collection folder: $collection (put .jpg/.jpeg/.png pictures or an .mp4 video here)"
 
 $p = Start-Process -FilePath $exe -ArgumentList '--install-startup' -Wait -PassThru -WindowStyle Hidden
 if ($p.ExitCode -ne 0) {

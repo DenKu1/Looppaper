@@ -18,7 +18,7 @@ public class CommandLineParserTests
     [Fact]
     public void ParsesValuesInBothForms()
     {
-        var options = CommandLineParser.Parse(["--folder", @"D:\Pics", "--interval=60", "--mode", "SINGLE", "--config=c.json", "--shuffle", "--no-music"]);
+        var options = CommandLineParser.Parse(["--folder", @"D:\Pics", "--interval=60", "--mode", "SINGLE", "--config=c.json", "--shuffle", "--no-video", "--volume", "35"]);
 
         Assert.Empty(options.Errors);
         Assert.Equal(@"D:\Pics", options.Folder);
@@ -26,7 +26,8 @@ public class CommandLineParserTests
         Assert.Equal(WallpaperMode.Single, options.Mode);
         Assert.Equal("c.json", options.ConfigPath);
         Assert.True(options.Shuffle);
-        Assert.True(options.NoMusic);
+        Assert.True(options.NoVideo);
+        Assert.Equal(35, options.Volume);
     }
 
     [Theory]
@@ -82,12 +83,12 @@ public class CommandLineParserTests
     {
         var config = new LooppaperConfig { IntervalSeconds = 42, Shuffle = true, CollectionFolder = "X" };
 
-        CommandLineParser.Parse(["--no-music"]).ApplyTo(config);
+        CommandLineParser.Parse(["--no-video"]).ApplyTo(config);
 
         Assert.Equal(42, config.IntervalSeconds);
         Assert.True(config.Shuffle);
         Assert.Equal("X", config.CollectionFolder);
-        Assert.False(config.Music.Enabled);
+        Assert.False(config.Video.Enabled);
     }
 
     [Fact]

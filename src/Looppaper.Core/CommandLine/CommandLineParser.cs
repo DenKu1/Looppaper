@@ -73,19 +73,17 @@ public static class CommandLineParser
                     options.Picture = NonEmpty(TakeValue(), name, options);
                     break;
                 case "interval":
-                    var intervalText = TakeValue();
-                    if (intervalText is not null)
-                    {
-                        if (int.TryParse(intervalText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds))
-                        {
-                            options.IntervalSeconds = seconds;
-                        }
-                        else
-                        {
-                            options.Errors.Add($"'--interval' expects a whole number of seconds, got '{intervalText}'.");
-                        }
-                    }
-
+                    options.IntervalSeconds = ParseInt(TakeValue(), "--interval", "a whole number of seconds", options);
+                    break;
+                case "video":
+                    options.Video = NonEmpty(TakeValue(), name, options);
+                    break;
+                case "no-video":
+                    NoValue();
+                    options.NoVideo = true;
+                    break;
+                case "volume":
+                    options.Volume = ParseInt(TakeValue(), "--volume", "a number from 0 to 100", options);
                     break;
                 case "mode":
                     var modeText = TakeValue();
@@ -106,10 +104,7 @@ public static class CommandLineParser
                     NoValue();
                     options.Shuffle = true;
                     break;
-                case "no-music":
-                    NoValue();
-                    options.NoMusic = true;
-                    break;
+
                 case "stop":
                     NoValue();
                     options.Stop = true;
@@ -137,7 +132,28 @@ public static class CommandLineParser
             options.Errors.Add("'--install-startup' and '--uninstall-startup' cannot be combined.");
         }
 
+        if (options.Video is not null && options.NoVideo)
+        {
+            options.Errors.Add("'--video' and '--no-video' cannot be combined.");
+        }
+
         return options;
+    }
+
+    private static int? ParseInt(string? text, string option, string expected, CommandLineOptions options)
+    {
+        if (text is null)
+        {
+            return null;
+        }
+
+        if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+        {
+            return value;
+        }
+
+        options.Errors.Add($"'{option}' expects {expected}, got '{text}'.");
+        return null;
     }
 
     private static string? NonEmpty(string? value, string name, CommandLineOptions options)

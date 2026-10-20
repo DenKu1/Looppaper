@@ -92,6 +92,7 @@ internal static unsafe partial class User32
     public const uint WS_CHILD = 0x40000000;
     public const uint WS_VISIBLE = 0x10000000;
     public const uint WS_CLIPSIBLINGS = 0x04000000;
+    public const uint WS_CLIPCHILDREN = 0x02000000;
     public const uint WS_EX_LAYERED = 0x00080000;
     public const uint WS_EX_NOACTIVATE = 0x08000000;
     public const uint WS_EX_TOOLWINDOW = 0x00000080;

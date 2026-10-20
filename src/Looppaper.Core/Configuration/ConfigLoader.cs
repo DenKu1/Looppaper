@@ -164,8 +164,8 @@ public static class ConfigLoader
                     }
 
                     break;
-                case "music":
-                    ParseMusic(value, config.Music, log);
+                case "video":
+                    ParseVideo(value, config.Video, log);
                     break;
                 default:
                     log.Warn($"Config: unknown field '{name}' ignored");
@@ -176,7 +176,7 @@ public static class ConfigLoader
         return config;
     }
 
-    private static void ParseMusic(JsonNode? node, MusicConfig music, ILog log)
+    private static void ParseVideo(JsonNode? node, VideoConfig video, ILog log)
     {
         if (node is null)
         {
@@ -185,47 +185,40 @@ public static class ConfigLoader
 
         if (node is not JsonObject obj)
         {
-            log.Warn("Config: 'music' must be an object; using defaults");
+            log.Warn("Config: 'video' must be an object; using defaults");
             return;
         }
 
         foreach (var (name, value) in obj)
         {
-            var path = "music." + name;
+            var path = "video." + name;
             switch (name.ToLowerInvariant())
             {
                 case "enabled":
                     if (ReadBool(value, path, log, out var enabled))
                     {
-                        music.Enabled = enabled;
+                        video.Enabled = enabled;
                     }
 
                     break;
-                case "folder":
-                    if (ReadString(value, path, log, allowNull: true, out var folder))
+                case "file":
+                    if (ReadString(value, path, log, allowNull: true, out var file))
                     {
-                        music.Folder = string.IsNullOrWhiteSpace(folder) ? null : folder;
-                    }
-
-                    break;
-                case "shuffle":
-                    if (ReadBool(value, path, log, out var shuffle))
-                    {
-                        music.Shuffle = shuffle;
+                        video.File = string.IsNullOrWhiteSpace(file) ? null : file;
                     }
 
                     break;
                 case "volume":
                     if (ReadInt(value, path, log, out var volume))
                     {
-                        music.Volume = volume;
+                        video.Volume = volume;
                     }
 
                     break;
                 case "maxfilesizemb":
                     if (ReadInt(value, path, log, out var maxSize))
                     {
-                        music.MaxFileSizeMb = maxSize;
+                        video.MaxFileSizeMb = maxSize;
                     }
 
                     break;
@@ -235,7 +228,6 @@ public static class ConfigLoader
             }
         }
     }
-
     private static bool ReadString(JsonNode? node, string name, ILog log, bool allowNull, out string? value)
     {
         value = null;

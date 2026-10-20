@@ -50,11 +50,14 @@ public class ConfigModelTests
     }
 
     [Fact]
-    public void ResolveMusicFolder_DefaultsToCollection()
+    public void ResolveVideo_NullUntilConfiguredThenInsideCollection()
     {
         var config = new LooppaperConfig { CollectionFolder = Path.GetTempPath() };
+        Assert.Null(config.ResolveVideo());
 
-        Assert.Equal(config.ResolveCollectionFolder(), config.ResolveMusicFolder());
+        config.Video.File = "waves.mp4";
+
+        Assert.Equal(Path.Combine(config.ResolveCollectionFolder(), "waves.mp4"), config.ResolveVideo());
     }
 
     [Fact]

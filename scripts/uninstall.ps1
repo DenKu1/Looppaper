@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Stops Looppaper (restoring your normal wallpaper), removes the sign-in startup entry and
-    deletes %LOCALAPPDATA%\Programs\Looppaper. Your pictures and music are never touched.
+    deletes %LOCALAPPDATA%\Programs\Looppaper. Your pictures and videos are never touched.
     Settings and logs are kept unless -RemoveSettings is given.
 
 .EXAMPLE
@@ -43,4 +43,4 @@ if ($RemoveSettings) {
     }
 }
 
-Write-Host 'Looppaper uninstalled. Your pictures and music were left in place.'
+Write-Host 'Looppaper uninstalled. Your pictures and videos were left in place.'

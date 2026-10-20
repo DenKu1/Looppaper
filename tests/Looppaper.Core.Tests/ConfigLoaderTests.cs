@@ -19,7 +19,7 @@ public class ConfigLoaderTests
         Assert.Contains("\"collectionFolder\"", text);
         Assert.Contains("\"mode\": \"slideshow\"", text);
         Assert.Contains("\"scaling\": \"fill\"", text);
-        Assert.Contains("\"maxFileSizeMb\": 20", text);
+        Assert.Contains("\"maxFileSizeMb\": 500", text);
     }
 
     [Fact]
@@ -32,9 +32,9 @@ public class ConfigLoaderTests
         Assert.Empty(log.Warnings);
         Assert.Empty(log.Errors);
         Assert.Equal(300, config.IntervalSeconds);
-        Assert.Equal(40, config.Music.Volume);
-        Assert.True(config.Music.Enabled);
-        Assert.Null(config.Music.Folder);
+        Assert.Equal(0, config.Video.Volume);
+        Assert.True(config.Video.Enabled);
+        Assert.Null(config.Video.File);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class ConfigLoaderTests
               "picture": "cat.png",
               "scaling": "FIT",
               "shuffle": true,
-              "music": { "enabled": false, "volume": 70, },
+              "video": { "enabled": false, "file": "waves.mp4", "volume": 70, },
             }
             """;
         var log = new MemoryLog();
@@ -61,8 +61,9 @@ public class ConfigLoaderTests
         Assert.Equal("cat.png", config.Picture);
         Assert.Equal(ScalingMode.Fit, config.Scaling);
         Assert.True(config.Shuffle);
-        Assert.False(config.Music.Enabled);
-        Assert.Equal(70, config.Music.Volume);
+        Assert.False(config.Video.Enabled);
+        Assert.Equal("waves.mp4", config.Video.File);
+        Assert.Equal(70, config.Video.Volume);
     }
 
     [Theory]
@@ -91,7 +92,7 @@ public class ConfigLoaderTests
               "scaling": 3,
               "shuffle": "yes",
               "collectionFolder": null,
-              "music": "loud",
+              "video": "loud",
               "intervalSecondz": 1
             }
             """;
@@ -104,7 +105,7 @@ public class ConfigLoaderTests
         Assert.Equal(ScalingMode.Fill, config.Scaling);
         Assert.False(config.Shuffle);
         Assert.Equal(LooppaperConfig.DefaultCollectionFolder, config.CollectionFolder);
-        Assert.Equal(MusicConfig.DefaultVolume, config.Music.Volume);
+        Assert.True(config.Video.Enabled);
         Assert.Equal(7, log.Warnings.Count());
         Assert.Contains(log.Warnings, w => w.Contains("intervalSecondz", StringComparison.Ordinal));
     }
@@ -130,7 +131,7 @@ public class ConfigLoaderTests
               "intervalSeconds": 1,
               "maxPictureSizeMb": 5000,
               "backgroundColor": "red",
-              "music": { "volume": 250, "maxFileSizeMb": 1e12 }
+              "video": { "volume": 250, "maxFileSizeMb": 1e12 }
             }
             """);
         var log = new MemoryLog();
@@ -140,8 +141,8 @@ public class ConfigLoaderTests
         Assert.Equal(LooppaperConfig.MinIntervalSeconds, config.IntervalSeconds);
         Assert.Equal(LooppaperConfig.MaxPictureSizeCapMb, config.MaxPictureSizeMb);
         Assert.Equal(LooppaperConfig.DefaultBackgroundColor, config.BackgroundColor);
-        Assert.Equal(100, config.Music.Volume);
-        Assert.Equal(MusicConfig.MaxFileSizeCapMb, config.Music.MaxFileSizeMb);
+        Assert.Equal(100, config.Video.Volume);
+        Assert.Equal(VideoConfig.MaxFileSizeCapMb, config.Video.MaxFileSizeMb);
         Assert.Equal(5, log.Warnings.Count());
     }
 
