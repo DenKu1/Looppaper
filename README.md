@@ -36,6 +36,26 @@ scaled for every monitor into a single cached bitmap, and painted with one `BitB
 between slideshow steps. Music plays through the MCI player built into Windows. When Looppaper
 stops, the window is removed and your normal wallpaper is redrawn.
 
+## Resource budget
+
+Targets: **~0% CPU while idle** (nothing runs between slideshow steps) and **under 60 MB of RAM**.
+Looppaper runs at *below normal* priority, opts into Windows EcoQoS (efficiency mode), and after
+each picture change compacts its heap and trims its working set.
+
+Measured with the published single-file exe on Windows 11 25H2 (build 26200), AMD Ryzen 7 7700,
+one 2560x1440 monitor, sampled every second for 60 s:
+
+| Scenario | CPU (one core) | Working set | Private bytes |
+|---|---|---|---|
+| Single picture, no music (idle) | 0.000% (0 ms in 60 s) | 24 MB | 38 MB |
+| Single picture + MP3 playback | 0.85% | 34–36 MB | 41 MB |
+| Slideshow every **5 s** + MP3 playback (stress) | 2.1% | 16–47 MB (peak while scaling) | 41–52 MB |
+
+With the default 5-minute interval the slideshow cost is one ~50 ms render every 300 s. Single-file
+compression keeps the exe at ~34 MB instead of ~65 MB but adds ~15 MB of private memory (the runtime
+is unpacked into RAM); idle private bytes drop to ~23 MB with compression turned off
+(`-p:EnableCompressionInSingleFile=false`).
+
 ## Configuration
 
 On first run Looppaper writes `%APPDATA%\Looppaper\config.json` with the defaults below. The file

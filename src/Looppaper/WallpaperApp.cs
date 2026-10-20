@@ -43,6 +43,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
         }
 
         _pictures = new PictureController(_config, _log, _window, _host, _frame);
+        _pictures.FrameShown += ResourceSaver.Trim;
         _pictures.Start();
 
         if (_config.Music.Enabled)

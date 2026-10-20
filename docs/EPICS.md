@@ -28,7 +28,7 @@ Tasks:
 - [x] 1.8 Single instance + `--stop`
 - [x] 1.9 Start on boot (`--install-startup` / `--uninstall-startup`)
 - [x] 1.10 Easy install (self-contained single-file publish, install/uninstall scripts, CI)
-- [ ] 1.11 Performance pass (priority, EcoQoS, working-set trimming, measured budget)
+- [x] 1.11 Performance pass (priority, EcoQoS, working-set trimming, measured budget)
 
 ## Epic 2 — Robustness & power awareness
 

@@ -51,6 +51,7 @@ internal static class Program
             return 3;
         }
 
+        ResourceSaver.Apply(log);
         var app = new WallpaperApp(config, log);
         instance.ListenForStop(app.RequestStop);
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
