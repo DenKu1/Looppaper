@@ -1,6 +1,5 @@
 using Looppaper.Core.Configuration;
 using Looppaper.Core.Logging;
-using Looppaper.Core.Media;
 using Looppaper.Desktop;
 using Looppaper.Native;
 using Looppaper.Rendering;
@@ -16,6 +15,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
     private readonly FrameCache _frame = new();
     private WallpaperWindow? _window;
     private DesktopHost? _host;
+    private PictureController? _pictures;
     private bool _shutDown;
 
     public WallpaperApp(LooppaperConfig config, ILog log)
@@ -40,9 +40,8 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
             return 1;
         }
 
-        var scanner = new MediaScanner(_log);
-        var pictures = scanner.Scan(_config.ResolveCollectionFolder(), MediaKind.Picture, _config.MaxPictureSizeMb);
-        ShowPicture(_config.ResolvePicture() ?? pictures.FirstOrDefault());
+        _pictures = new PictureController(_config, _log, _window, _host, _frame);
+        _pictures.Start();
 
         WallpaperWindow.RunMessageLoop();
         Shutdown();
@@ -68,27 +67,13 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
         }
     }
 
-    public bool OnMessage(uint msg, IntPtr wParam, IntPtr lParam) => false;
+    public bool OnMessage(uint msg, IntPtr wParam, IntPtr lParam) =>
+        _pictures?.OnMessage(msg, wParam, lParam) == true;
 
     public void OnEndSession()
     {
         _log.Info("Windows session is ending");
         Shutdown();
-    }
-
-    private void ShowPicture(string? path)
-    {
-        var bounds = _host!.ChildBounds();
-        var monitors = Monitors.RelativeToVirtualScreen();
-        var hbitmap = PictureRenderer.Render(path, bounds.Width, bounds.Height, monitors, _config.Scaling, _config.ResolveBackgroundColor(), _log);
-        if (hbitmap == IntPtr.Zero)
-        {
-            return;
-        }
-
-        _frame.Swap(hbitmap);
-        _window!.Invalidate();
-        _log.Info(path is null ? "Showing background color" : $"Showing {path} on {monitors.Count} monitor(s): {string.Join(", ", monitors)}");
     }
 
     private void Shutdown()
@@ -99,6 +84,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
         }
 
         _shutDown = true;
+        _pictures?.Stop();
         _frame.Dispose();
         Gdi32.DeleteObject(_backgroundBrush);
         WallpaperRestorer.Restore(_log);

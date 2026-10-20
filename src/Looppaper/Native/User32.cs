@@ -205,6 +205,13 @@ internal static unsafe partial class User32
     [LibraryImport("user32.dll")]
     public static partial int FillRect(IntPtr hDC, in RECT lprc, IntPtr hbr);
 
+    [LibraryImport("user32.dll", SetLastError = true)]
+    public static partial nuint SetTimer(IntPtr hWnd, nuint nIDEvent, uint uElapse, IntPtr lpTimerFunc);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool KillTimer(IntPtr hWnd, nuint uIDEvent);
+
     [LibraryImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool SystemParametersInfo(uint uiAction, uint uiParam, char* pvParam, uint fWinIni);
