@@ -30,6 +30,11 @@ internal static class Program
             return Stop(log);
         }
 
+        if (options.InstallStartup || options.UninstallStartup)
+        {
+            return ConfigureStartup(options.InstallStartup, log);
+        }
+
         var configPath = options.ConfigPath is null ? AppPaths.DefaultConfigFile : AppPaths.ExpandPath(options.ConfigPath);
         var config = ConfigLoader.LoadOrCreate(configPath, log);
         options.ApplyTo(config);
@@ -61,6 +66,36 @@ internal static class Program
         };
 
         return app.Run();
+    }
+
+    private static int ConfigureStartup(bool install, ILog log)
+    {
+        try
+        {
+            string message;
+            if (install)
+            {
+                var exe = Environment.ProcessPath ?? throw new InvalidOperationException("Cannot determine the executable path.");
+                StartupRegistration.Install(exe);
+                message = $"Looppaper will start when you sign in ({StartupRegistration.Command(exe)}).";
+            }
+            else
+            {
+                message = StartupRegistration.Uninstall()
+                    ? "Looppaper will no longer start when you sign in."
+                    : "Looppaper was not set to start when you sign in.";
+            }
+
+            log.Info(message);
+            ConsoleOutput.WriteLine(message);
+            return 0;
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException or InvalidOperationException)
+        {
+            log.Error("Changing the startup entry failed", ex);
+            ConsoleOutput.WriteLine($"Changing the startup entry failed: {ex.Message}");
+            return 1;
+        }
     }
 
     private static int Stop(ILog log)
