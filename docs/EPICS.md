@@ -35,12 +35,27 @@ Tasks:
 
 ## Epic 2 — Robustness & power awareness
 
-- [ ] Explorer restart recovery (re-attach on `TaskbarCreated`)
-- [ ] Pause on fullscreen app / game
-- [ ] Pause on lock, sleep and battery saver
-- [ ] Monitor hot-plug and DPI changes
-- [ ] Hot-reload of config + collection folder watcher
-- [ ] Crash watchdog that restores the original wallpaper
+Keep the wallpaper alive when the desktop changes under it, and stop spending power when nobody can see it.
+Pausing covers both the video (Media Engine paused, so the GPU decoder idles) and the slideshow timer.
+
+- [ ] 2.1 Explorer restart recovery: a hidden top-level control window owns the message loop and receives
+      `TaskbarCreated`; when Explorer restarts (or the wallpaper window's parent disappears) Looppaper finds the
+      new desktop host, recreates its window and restarts the video or pictures instead of exiting.
+- [ ] 2.2 Pause on fullscreen app / game: while the foreground window covers its whole monitor (or Windows reports
+      a full-screen Direct3D app or presentation mode) playback pauses, and resumes when that window goes away.
+      Config `pause.onFullscreen` (default true).
+- [ ] 2.3 Pause on lock, sleep, display off and battery saver: session lock / disconnect (`pause.onLock`, default
+      true), suspend / resume, the display turning off (always), Windows energy saver (`pause.onBatterySaver`,
+      default true) and optionally running on battery (`pause.onBattery`, default false).
+- [ ] 2.4 Monitor hot-plug, resolution and DPI changes: on display, DPI or work-area changes (debounced) the window
+      is resized to the new virtual screen and the video players / picture frame are rebuilt per monitor.
+- [ ] 2.5 Hot-reload of `config.json` and a collection folder watcher: edits to the config apply without a restart
+      (command-line overrides still win); pictures or videos added, changed or removed in the collection folder are
+      picked up straight away (debounced).
+- [ ] 2.6 Crash watchdog: a small `--watchdog` copy waits for the wallpaper process; if it ends without a clean stop
+      (crash, killed) the original Windows wallpaper is re-applied, and after a crash Looppaper is started again (at
+      most 3 times in 10 minutes). Config `watchdog` (default true).
+- [ ] 2.7 Tests and README.
 
 ## Shared groundwork for Epics 8 and 9
 
