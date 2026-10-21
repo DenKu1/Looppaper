@@ -79,8 +79,9 @@ public sealed class LooppaperConfig
 
 public sealed class VideoConfig
 {
-    public const int DefaultMaxFileSizeMb = 500;
-    public const int MaxFileSizeCapMb = 4096;
+    /// <summary>Videos are limited to 100 MB; larger values in config.json are clamped down to this.</summary>
+    public const int DefaultMaxFileSizeMb = 100;
+    public const int MaxFileSizeCapMb = 100;
 
     /// <summary>When true and a video is available, the looping video is the wallpaper instead of pictures.</summary>
     public bool Enabled { get; set; } = true;

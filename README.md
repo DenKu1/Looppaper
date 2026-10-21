@@ -83,7 +83,7 @@ in the log); a file that is not valid JSON is ignored and the defaults are used.
     "enabled": true,            // false = always show pictures
     "file": null,               // file name in the collection, or a full path; null = first .mp4 in the collection
     "volume": 0,                // 0..100; 0 = muted
-    "maxFileSizeMb": 500        // larger videos are skipped (cap 4096)
+    "maxFileSizeMb": 100        // larger videos are refused (logged) and pictures are shown; 100 is also the maximum
   }
 }
 ```

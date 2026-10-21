@@ -10,7 +10,7 @@ Acceptance criteria:
 
 - Static pictures: `.jpeg`, `.jpg`, `.png`.
 - Looping `.mp4` video wallpaper that can be enabled/disabled, with adjustable volume (muted by default);
-  files above a size limit (default 500 MB, hard cap 4096 MB) are skipped and logged.
+  files above the 100 MB limit (default and hard cap) are refused and logged, and pictures are shown instead.
 - Starts on boot (per-user `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, no admin).
 - Configurable collection folder.
 - Single-picture mode, or cycle through all pictures with a configurable interval.
@@ -31,6 +31,7 @@ Tasks:
 - [x] 1.10 Easy install (self-contained single-file publish, install/uninstall scripts, CI)
 - [x] 1.11 Performance pass (priority, EcoQoS, working-set trimming, measured budget)
 - [x] 1.12 MP4 video wallpaper (Media Foundation hardware decode, looped, on/off, volume; replaces MP3)
+- [x] 1.13 Video size limit hardened to 100 MB (default and hard cap; larger videos refused, pictures shown)
 
 ## Epic 2 — Robustness & power awareness
 

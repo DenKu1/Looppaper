@@ -31,7 +31,7 @@ public class MediaScannerTests
         dir.File("song.mp3");
         dir.File("cover.jpg");
 
-        var videos = new MediaScanner(new MemoryLog()).Scan(dir.Path, MediaKind.Video, 500);
+        var videos = new MediaScanner(new MemoryLog()).Scan(dir.Path, MediaKind.Video, 100);
 
         Assert.Equal(["1.mp4", "2.MP4"], videos.Select(Path.GetFileName));
     }

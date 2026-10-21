@@ -19,7 +19,7 @@ public class ConfigLoaderTests
         Assert.Contains("\"collectionFolder\"", text);
         Assert.Contains("\"mode\": \"slideshow\"", text);
         Assert.Contains("\"scaling\": \"fill\"", text);
-        Assert.Contains("\"maxFileSizeMb\": 500", text);
+        Assert.Contains("\"maxFileSizeMb\": 100", text);
     }
 
     [Fact]

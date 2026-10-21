@@ -131,7 +131,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
             }
             else if (new FileInfo(configured).Length > maxMb * MediaScanner.BytesPerMb)
             {
-                problem = $"is larger than {maxMb} MB";
+                problem = $"is {new FileInfo(configured).Length / (double)MediaScanner.BytesPerMb:F1} MB, above the {maxMb} MB video limit, so it will not be played";
             }
 
             if (problem is null)
