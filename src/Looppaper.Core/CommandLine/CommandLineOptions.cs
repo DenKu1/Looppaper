@@ -21,6 +21,7 @@ public sealed class CommandLineOptions
           --video <file>         Play this .mp4 looped as the wallpaper (file name in the collection or full path)
           --no-video             Show pictures even if the collection has a video
           --volume <0-100>       Video volume (0 = muted)
+          --compress <file>      Compress a video above the 100 MB limit (asks first; needs ffmpeg)
           --stop                 Stop the running instance and restore the wallpaper
           --install-startup      Start Looppaper when you sign in (current user)
           --uninstall-startup    Remove Looppaper from sign-in startup
@@ -49,6 +50,9 @@ public sealed class CommandLineOptions
 
     public int? Volume { get; set; }
 
+    /// <summary>Video to offer to compress (file name in the collection or full path).</summary>
+    public string? Compress { get; set; }
+
     public bool Stop { get; set; }
 
     public bool InstallStartup { get; set; }
@@ -66,7 +70,7 @@ public sealed class CommandLineOptions
     public List<string> Errors { get; } = [];
 
     /// <summary>True when the invocation performs a command and exits instead of running the wallpaper.</summary>
-    public bool IsCommand => Help || Stop || InstallStartup || UninstallStartup || IsWallpaperEngineCommand;
+    public bool IsCommand => Help || Stop || InstallStartup || UninstallStartup || IsWallpaperEngineCommand || Compress is not null;
 
     /// <summary>True for the Wallpaper Engine library commands (<c>--we-*</c>).</summary>
     public bool IsWallpaperEngineCommand => WeList;

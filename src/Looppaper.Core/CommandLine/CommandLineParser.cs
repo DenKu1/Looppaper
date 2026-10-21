@@ -105,6 +105,9 @@ public static class CommandLineParser
                     options.Shuffle = true;
                     break;
 
+                case "compress":
+                    options.Compress = NonEmpty(TakeValue(), name, options);
+                    break;
                 case "stop":
                     NoValue();
                     options.Stop = true;

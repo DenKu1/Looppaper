@@ -118,6 +118,18 @@ internal static unsafe partial class User32
     public const uint SPI_SETDESKWALLPAPER = 0x0014;
     public const uint SPIF_UPDATEINIFILE = 0x01;
 
+    public const uint MB_YESNO = 0x00000004;
+    public const uint MB_ICONWARNING = 0x00000030;
+    public const uint MB_ICONQUESTION = 0x00000020;
+    public const uint MB_ICONINFORMATION = 0x00000040;
+    public const uint MB_DEFBUTTON2 = 0x00000100;
+    public const uint MB_SETFOREGROUND = 0x00010000;
+    public const uint MB_TOPMOST = 0x00040000;
+    public const int IDYES = 6;
+
+    [LibraryImport("user32.dll", EntryPoint = "MessageBoxW", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial int MessageBox(IntPtr hWnd, string lpText, string lpCaption, uint uType);
+
     [LibraryImport("user32.dll", EntryPoint = "FindWindowW", StringMarshalling = StringMarshalling.Utf16)]
     public static partial IntPtr FindWindow(string? lpClassName, string? lpWindowName);
 

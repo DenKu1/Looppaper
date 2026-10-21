@@ -47,6 +47,11 @@ internal static class Program
             return new WallpaperEngineCommands(options, config, configPath, log).Run();
         }
 
+        if (options.Compress is not null)
+        {
+            return OversizedVideoFlow.RunCompressCommand(options.Compress, config, log);
+        }
+
         log.Info($"Looppaper {typeof(Program).Assembly.GetName().Version} starting on {Environment.OSVersion.VersionString}; config {configPath}; overrides {options}");
         log.Info($"Collection {config.ResolveCollectionFolder()}, mode {config.Mode}, interval {config.IntervalSeconds}s, scaling {config.Scaling}");
 

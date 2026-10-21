@@ -12,6 +12,9 @@ namespace Looppaper;
 /// <summary>Owns the wallpaper window and whatever is shown in it: a looping video, or pictures.</summary>
 internal sealed class WallpaperApp : IWallpaperWindowHandler
 {
+    /// <summary>Posted by the compression worker when the compressed copy of an oversized video is ready.</summary>
+    private const uint WM_COMPRESSED_VIDEO_READY = User32.WM_APP + 3;
+
     private readonly LooppaperConfig _config;
     private readonly ILog _log;
     private readonly IntPtr _backgroundBrush;
@@ -20,6 +23,9 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
     private DesktopHost? _host;
     private PictureController? _pictures;
     private VideoController? _video;
+    private readonly CancellationTokenSource _cancel = new();
+    private Task? _offer;
+    private volatile string? _compressedPath;
     private bool _shutDown;
 
     public WallpaperApp(LooppaperConfig config, ILog log)
@@ -73,8 +79,21 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
         }
     }
 
-    public bool OnMessage(uint msg, IntPtr wParam, IntPtr lParam) =>
-        _video?.OnMessage(msg, wParam, lParam) == true || _pictures?.OnMessage(msg, wParam, lParam) == true;
+    public bool OnMessage(uint msg, IntPtr wParam, IntPtr lParam)
+    {
+        switch (msg)
+        {
+            case WM_COMPRESSED_VIDEO_READY:
+                SwitchToCompressedVideo();
+                return true;
+            case PictureController.WM_FRAME_READY when _pictures is null:
+                // A picture finished rendering after the switch to video; drop it.
+                Gdi32.DeleteObject(lParam);
+                return true;
+            default:
+                return _video?.OnMessage(msg, wParam, lParam) == true || _pictures?.OnMessage(msg, wParam, lParam) == true;
+        }
+    }
 
     public void OnEndSession()
     {
@@ -90,12 +109,17 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
             return false;
         }
 
-        var path = FindVideo();
-        if (path is null)
+        var choice = FindVideo();
+        if (choice.Oversized is { } oversized)
         {
-            return false;
+            OfferCompression(oversized);
         }
 
+        return choice.PlayPath is { } path && StartVideo(path);
+    }
+
+    private bool StartVideo(string path)
+    {
         _video = new VideoController(_config, _log, _window!);
         if (!_video.Start(path, Monitors.RelativeToVirtualScreen()))
         {
@@ -118,7 +142,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
     /// The configured video if it is usable, otherwise the first .mp4 in the collection. Videos above the
     /// size limit are not played (see <see cref="OversizedVideoFlow"/>).
     /// </summary>
-    private string? FindVideo()
+    private VideoChoice FindVideo()
     {
         var choice = VideoChooser.Choose(VideoCandidates(), _config.Video.MaxFileSizeMb, key => OversizedVideoFlow.FindCompressed(key, _config, _log), _log);
         if (choice.PlayPath is null)
@@ -126,7 +150,53 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
             _log.Info(choice.Oversized is null ? "No video in the collection; showing pictures" : "No video within the size limit; showing pictures");
         }
 
-        return choice.PlayPath;
+        return choice;
+    }
+
+    /// <summary>
+    /// Asks (message box, on a worker thread so the wallpaper keeps going) whether to compress the oversized
+    /// video, and switches to the compressed copy once it is ready.
+    /// </summary>
+    private void OfferCompression(VideoFileKey key)
+    {
+        var hwnd = _window!.Handle;
+        var token = _cancel.Token;
+        _offer = Task.Run(() =>
+        {
+            try
+            {
+                var path = OversizedVideoFlow.Resolve(key.FullPath, _config, _log, OversizedVideoMode.Background, token);
+                if (path is not null && !token.IsCancellationRequested)
+                {
+                    _compressedPath = path;
+                    User32.PostMessage(hwnd, WM_COMPRESSED_VIDEO_READY, IntPtr.Zero, IntPtr.Zero);
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Error($"Offering to compress {key.FullPath} failed", ex);
+            }
+        }, CancellationToken.None);
+    }
+
+    /// <summary>Runs on the UI thread: replaces whatever is shown with the compressed video.</summary>
+    private void SwitchToCompressedVideo()
+    {
+        var path = _compressedPath;
+        if (_shutDown || path is null)
+        {
+            return;
+        }
+
+        _log.Info($"Compressed video ready; switching to {path}");
+        _video?.Stop();
+        _video = null;
+        _pictures?.Stop();
+        _pictures = null;
+        if (!StartVideo(path))
+        {
+            StartPictures();
+        }
     }
 
     /// <summary>The configured video (when it exists), then every .mp4 in the collection.</summary>
@@ -177,6 +247,12 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
         }
 
         _shutDown = true;
+        _cancel.Cancel();
+        if (_offer is { IsCompleted: false } offer && !offer.Wait(TimeSpan.FromSeconds(5)))
+        {
+            _log.Warn("Video compression did not stop within 5 seconds");
+        }
+
         _video?.Stop();
         _pictures?.Stop();
         _frame.Dispose();

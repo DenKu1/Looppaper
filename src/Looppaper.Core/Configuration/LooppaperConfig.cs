@@ -66,7 +66,8 @@ public sealed class LooppaperConfig
     /// <summary>Absolute path of the configured video file, or null to use the first video in the collection.</summary>
     public string? ResolveVideo() => ResolveInCollection(Video.File);
 
-    private string? ResolveInCollection(string? file)
+    /// <summary>Absolute path of a file name in the collection folder, or of a full path; null when empty.</summary>
+    public string? ResolveInCollection(string? file)
     {
         if (string.IsNullOrWhiteSpace(file))
         {

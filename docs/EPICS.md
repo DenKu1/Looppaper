@@ -83,7 +83,7 @@ asking first.
 
 - [x] 9.1 Detect: when a chosen video (config, `--video`, collection folder or a Wallpaper Engine item) is over
       100 MB, don't play it; log it and fall back to pictures (current behaviour).
-- [ ] 9.2 Notify and ask first: show the file name, its size and the estimated result, and ask before
+- [x] 9.2 Notify and ask first: show the file name, its size and the estimated result, and ask before
       compressing. Console prompt when run from a terminal (`--compress <file>`, or the `--we-set` flow asks
       "Compress to fit under 100 MB? [y/N]"); when started in the background with no console, show a Windows
       notification or message box asking yes / no. Never compress silently. Remember a "no" per file so it does

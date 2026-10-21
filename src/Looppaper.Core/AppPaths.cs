@@ -15,6 +15,10 @@ public static class AppPaths
     public static string CacheDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppName, "cache");
 
+    /// <summary>Remembered answers to "compress this oversized video?" and the compressed copies (Epic 9).</summary>
+    public static string CompressionStateFile =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppName, "compression.json");
+
     /// <summary>Expands environment variables (e.g. <c>%USERPROFILE%</c>), strips quotes and makes the path absolute.</summary>
     public static string ExpandPath(string path)
     {

@@ -37,6 +37,13 @@ internal static unsafe partial class Monitors
         }
     }
 
+    /// <summary>Size in pixels of the largest monitor (by area).</summary>
+    public static (int Width, int Height) Largest()
+    {
+        var largest = RelativeToVirtualScreen().MaxBy(r => (long)r.Width * r.Height);
+        return (largest.Width, largest.Height);
+    }
+
     [UnmanagedCallersOnly]
     private static int Collect(IntPtr monitor, IntPtr hdc, RECT* rect, IntPtr data)
     {
