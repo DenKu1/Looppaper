@@ -82,6 +82,67 @@ jobs:
             throw "Looppaper.exe has product version $($info.ProductVersion), expected $env:VERSION"
           }
 
+      # Optional Authenticode signing. Runs only when both repository secrets exist:
+      #   SIGNING_CERT_BASE64   - the code-signing certificate as a base64-encoded .pfx
+      #                           ([Convert]::ToBase64String([IO.File]::ReadAllBytes('cert.pfx')))
+      #   SIGNING_CERT_PASSWORD - the .pfx password
+      # Without them the release is built unsigned and this step is skipped.
+      - name: Check signing secrets
+        id: signing
+        shell: pwsh
+        env:
+          SIGNING_CERT_BASE64: ${{ secrets.SIGNING_CERT_BASE64 }}
+          SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        run: |
+          $enabled = if ($env:SIGNING_CERT_BASE64 -and $env:SIGNING_CERT_PASSWORD) { 'true' } else { 'false' }
+          "enabled=$enabled" >> $env:GITHUB_OUTPUT
+          if ($enabled -eq 'true') { Write-Host 'Signing secrets found: Looppaper.exe will be signed.' }
+          else { Write-Host 'No signing secrets (SIGNING_CERT_BASE64 / SIGNING_CERT_PASSWORD): building unsigned.' }
+
+      - name: Sign Looppaper.exe
+        if: steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        env:
+          SIGNING_CERT_BASE64: ${{ secrets.SIGNING_CERT_BASE64 }}
+          SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+          TIMESTAMP_URL: http://timestamp.digicert.com
+        run: |
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName | Select-Object -Last 1
+          if (-not $signtool) { throw 'signtool.exe not found in the Windows SDK.' }
+          $pfx = Join-Path $env:RUNNER_TEMP 'signing.pfx'
+          try {
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGNING_CERT_BASE64))
+            & $signtool.FullName sign /fd SHA256 /f $pfx /p $env:SIGNING_CERT_PASSWORD /tr $env:TIMESTAMP_URL /td SHA256 /d Looppaper publish/Looppaper.exe
+            if ($LASTEXITCODE -ne 0) { throw "signtool sign failed ($LASTEXITCODE)" }
+            & $signtool.FullName verify /pa /v publish/Looppaper.exe
+            if ($LASTEXITCODE -ne 0) { throw "signtool verify failed ($LASTEXITCODE)" }
+          }
+          finally {
+            Remove-Item -LiteralPath $pfx -Force -ErrorAction SilentlyContinue
+          }
+
+      # Alternative: Azure Trusted Signing (no .pfx; Microsoft holds the key). Replace the two steps above
+      # with this one and add the secrets AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET (an app
+      # registration with the "Trusted Signing Certificate Profile Signer" role). Check the action's current
+      # release before enabling it and pin that exact version.
+      #
+      # - name: Sign Looppaper.exe (Azure Trusted Signing)
+      #   if: steps.signing.outputs.enabled == 'true'   # with the check step above testing AZURE_CLIENT_ID instead
+      #   uses: azure/trusted-signing-action@v0.5.1
+      #   with:
+      #     azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+      #     azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+      #     azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+      #     endpoint: https://weu.codesigning.azure.net/
+      #     trusted-signing-account-name: <account name>
+      #     certificate-profile-name: <certificate profile name>
+      #     files-folder: publish
+      #     files-folder-filter: exe
+      #     file-digest: SHA256
+      #     timestamp-rfc3161: http://timestamp.acs.microsoft.com
+      #     timestamp-digest: SHA256
+
       - name: Package
         shell: pwsh
         run: ./scripts/package-release.ps1 -Version '${{ steps.version.outputs.version }}' -PublishDir publish -OutputDir artifacts

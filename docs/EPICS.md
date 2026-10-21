@@ -103,7 +103,9 @@ asking first.
       `packaging/winget/New-WingetManifest.ps1` to fill version / URL / SHA-256 from a release. Nothing is
       submitted to microsoft/winget-pkgs. winget needs a publicly downloadable installer URL, so it cannot
       work while the repository is private.
-- [ ] 6.3 Optional code signing in the release workflow.
+- [x] 6.3 Optional code signing in the release workflow: `signtool` with a timestamp server when the secrets
+      `SIGNING_CERT_BASE64` + `SIGNING_CERT_PASSWORD` exist (skipped otherwise), and a commented Azure Trusted
+      Signing alternative. Needs an OV/EV certificate or an Azure Trusted Signing account (owner's decision).
 - [ ] 6.4 Opt-in update check (`checkForUpdates`, `--check-update`).
 
 ## Epic 7 — Optional control surface

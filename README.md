@@ -148,6 +148,24 @@ then `powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Ve
 
 Check a download with `Get-FileHash Looppaper-0.2.0-win-x64.zip` against the `.sha256` file.
 
+### Code signing
+
+Releases are unsigned by default, so Windows SmartScreen may warn on first run ("More info" ->
+"Run anyway"). The release workflow signs `Looppaper.exe` with `signtool` (SHA-256, RFC 3161 timestamp)
+before packing when both of these repository secrets exist, and skips signing otherwise:
+
+| Secret | Value |
+|---|---|
+| `SIGNING_CERT_BASE64` | The code-signing certificate as a base64-encoded `.pfx`: `[Convert]::ToBase64String([IO.File]::ReadAllBytes('cert.pfx'))` |
+| `SIGNING_CERT_PASSWORD` | The `.pfx` password |
+
+This needs an OV or EV code-signing certificate from a CA. Since 2023 new certificates are issued on
+hardware tokens / cloud HSMs and usually cannot be exported as a `.pfx`; in that case use
+[Azure Trusted Signing](https://learn.microsoft.com/azure/trusted-signing/) instead: `release.yml` has a
+commented-out step for it (secrets `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, plus the
+account and certificate profile names). Signing changes the exe, so the zip and `.sha256` are always
+made from the signed file.
+
 ### winget
 
 `packaging/winget/templates/` holds the manifest template (schema 1.6: version, installer and en-US
