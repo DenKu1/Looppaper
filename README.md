@@ -4,7 +4,37 @@ A lightweight live-wallpaper engine for Windows 10/11 with no UI. Looppaper puts
 video, one fixed picture, or a slideshow of pictures from a folder behind your desktop icons.
 Everything is configured with a JSON file and command-line switches.
 
-> Status: Epic 1 (core engine) is done. See [docs/EPICS.md](docs/EPICS.md) for the roadmap.
+- **Light on resources:** ~0% CPU and under 60 MB of RAM for pictures; videos are decoded on the GPU
+  (a few percent of one core). See [Resource budget](#resource-budget).
+- **Gets out of the way:** pauses while a full-screen game or app covers the screen, while the PC is locked,
+  the display is off, or battery saver is on, and restores your normal wallpaper when it stops.
+- **Keeps working:** survives Explorer restarts and monitor / resolution / DPI changes, picks up edits to
+  `config.json` and the collection folder straight away, and recovers from a crash.
+- **Wallpaper Engine wallpapers:** plays the video wallpapers you subscribed to, and records scene and web
+  wallpapers once into a looping video. See [Wallpaper Engine wallpapers](#wallpaper-engine-wallpapers).
+
+Looppaper is a personal project. The roadmap and what is still planned are in [docs/EPICS.md](docs/EPICS.md).
+
+## Requirements
+
+- Windows 10 or 11, x64. No admin rights and no .NET install needed (the exe is self-contained).
+- [ffmpeg](https://ffmpeg.org/) (8 or newer) only for compressing videos and converting Wallpaper Engine
+  scenes: `winget install Gyan.FFmpeg`. Without it, videos play as they are. ffmpeg is not bundled.
+- [Wallpaper Engine](https://store.steampowered.com/app/431960/Wallpaper_Engine/) (Steam) only to use its
+  wallpapers. Scene and web wallpapers need it installed; video wallpapers only need the downloaded files.
+
+## Known limitations
+
+- No settings window: settings live in `config.json` and on the command line.
+- One wallpaper for all monitors: the same picture or video is shown on each (no per-monitor pictures and
+  no spanning one picture across monitors).
+- Only `.mp4` videos (H.264 / HEVC) and `.jpg` / `.jpeg` / `.png` pictures; no GIF, WebM or video playlists.
+- Each monitor decodes its own copy of the video, and only the first monitor plays sound.
+- Videos above the GPU's hardware decoder limit (e.g. H.264 larger than 4096x2304) fall back to software
+  decoding and cost far more CPU and RAM.
+- Wallpaper Engine application wallpapers are not supported; scene and web wallpapers are recorded once
+  into a fixed loop, so mouse interaction and other live effects are lost.
+- Releases are not code-signed yet, so Windows SmartScreen may warn on first run.
 
 ## Install
 
@@ -428,4 +458,16 @@ dotnet publish src/Looppaper -p:PublishProfile=win-x64   # -> publish\Looppaper.
 powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
-CI (`.github/workflows/build.yml`) builds, tests and uploads `Looppaper-win-x64.zip` (exe + scripts + README) on every push.
+CI (`.github/workflows/build.yml`) builds, tests and uploads `Looppaper-win-x64.zip` (exe + scripts + README + license files) on every push.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). To report a
+security problem privately, see [SECURITY.md](SECURITY.md).
+
+## License
+
+Looppaper is released under the [MIT License](LICENSE). The Wallpaper Engine scene conversion is ported from
+[wp2video](https://github.com/unio207/wp2video) (MIT); see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+Looppaper is not affiliated with Wallpaper Engine, Valve or Steam, and never downloads or redistributes
+Workshop content.
