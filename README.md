@@ -119,11 +119,11 @@ Looppaper.exe [options]
   --install-startup      Start Looppaper when you sign in (current user)
   --uninstall-startup    Remove Looppaper from sign-in startup
   --we-list              List the Wallpaper Engine Workshop wallpapers downloaded on this PC
-  --check-update         Check GitHub once for a newer release and print the result (never downloads)
   --we-set <number|id>   Use that Wallpaper Engine wallpaper (number from --we-list, or Workshop id)
   --we-pick              Show the list and ask which Wallpaper Engine wallpaper to use
   --we-convert <num|id>  Record a Wallpaper Engine scene / web wallpaper to a looping .mp4 (cached)
   --no-restart           With --we-set / --we-pick: only update config.json, don't restart Looppaper
+  --check-update         Check GitHub once for a newer release and print the result (never downloads)
   --help                 Show this help
 ```
 
