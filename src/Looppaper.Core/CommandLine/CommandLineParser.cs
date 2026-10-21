@@ -117,6 +117,10 @@ public static class CommandLineParser
                     NoValue();
                     options.UninstallStartup = true;
                     break;
+                case "background":
+                    NoValue();
+                    options.Background = true;
+                    break;
                 case "help":
                     NoValue();
                     options.Help = true;

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Looppaper.Core;
 using Looppaper.Core.CommandLine;
 using Looppaper.Core.Configuration;
@@ -42,6 +43,18 @@ internal static class Program
 
         log.Info($"Looppaper {typeof(Program).Assembly.GetName().Version} starting on {Environment.OSVersion.VersionString}; config {configPath}; overrides {options}");
         log.Info($"Collection {config.ResolveCollectionFolder()}, mode {config.Mode}, interval {config.IntervalSeconds}s, scaling {config.Scaling}");
+
+        // Started from a terminal: run the wallpaper as a background copy so the terminal is free again.
+        if (!options.Background && ConsoleOutput.HasConsole && !ConsoleOutput.OwnsConsole)
+        {
+            return LaunchInBackground(args, log);
+        }
+
+        // No terminal to keep (older Windows created a console just for us, or we are the background copy).
+        if (ConsoleOutput.HasConsole)
+        {
+            ConsoleOutput.Detach();
+        }
 
         using var instance = SingleInstance.TryClaim();
         if (instance is null)
@@ -97,6 +110,44 @@ internal static class Program
             ConsoleOutput.WriteLine($"Changing the startup entry failed: {ex.Message}");
             return 1;
         }
+    }
+
+    private static int LaunchInBackground(string[] args, ILog log)
+    {
+        var exe = Environment.ProcessPath;
+        if (exe is null)
+        {
+            ConsoleOutput.WriteLine("Cannot determine the executable path.");
+            return 1;
+        }
+
+        var start = new ProcessStartInfo(exe) { UseShellExecute = false, CreateNoWindow = true };
+        foreach (var arg in args)
+        {
+            start.ArgumentList.Add(arg);
+        }
+
+        start.ArgumentList.Add("--background");
+        using var child = Process.Start(start);
+        if (child is null)
+        {
+            ConsoleOutput.WriteLine("Starting Looppaper in the background failed.");
+            return 1;
+        }
+
+        // Give it a moment so an immediate failure (e.g. already running) is reported here.
+        if (child.WaitForExit(1500))
+        {
+            var message = child.ExitCode == 3
+                ? "Looppaper is already running. Use --stop to stop it."
+                : $"Looppaper exited with code {child.ExitCode}; see {AppPaths.LogFile}";
+            ConsoleOutput.WriteLine(message);
+            return child.ExitCode;
+        }
+
+        log.Info($"Started background instance (pid {child.Id})");
+        ConsoleOutput.WriteLine($"Looppaper is running in the background (pid {child.Id}). Stop it with: Looppaper.exe --stop");
+        return 0;
     }
 
     private static int Stop(ILog log)

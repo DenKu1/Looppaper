@@ -115,6 +115,8 @@ Looppaper.exe [options]
 
 Command-line options override the config file for that run only; the file is not changed.
 
+Commands such as `--help` and `--stop` print their result in the terminal you run them from. Starting the wallpaper from a terminal hands it to a background copy and returns straight away, so you can close the terminal. Started from Explorer or at sign-in no console window appears (Windows 11 24H2 and later; older Windows may flash a console window for a moment).
+
 ## Logs
 
 `%LOCALAPPDATA%\Looppaper\logs\looppaper.log` (rolls over at 1 MB, one previous file kept as `looppaper.log.1`).

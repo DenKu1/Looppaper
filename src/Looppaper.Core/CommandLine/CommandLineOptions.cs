@@ -26,6 +26,7 @@ public sealed class CommandLineOptions
           --uninstall-startup    Remove Looppaper from sign-in startup
           --help                 Show this help
 
+        Without a command, Looppaper starts the wallpaper; from a terminal it continues in the background.
         Options accept "--name value" or "--name=value". Logs: %LOCALAPPDATA%\Looppaper\logs\looppaper.log
         """;
 
@@ -54,6 +55,9 @@ public sealed class CommandLineOptions
     public bool UninstallStartup { get; set; }
 
     public bool Help { get; set; }
+
+    /// <summary>Internal: set on the copy that a terminal launch starts in the background. Not shown in help.</summary>
+    public bool Background { get; set; }
 
     public List<string> Errors { get; } = [];
 
