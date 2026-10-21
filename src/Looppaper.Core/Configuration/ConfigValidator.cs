@@ -28,6 +28,7 @@ public static class ConfigValidator
         }
 
         config.Video ??= new VideoConfig();
+        config.WallpaperEngine ??= new WallpaperEngineConfig();
         config.Video.Volume = Clamp(config.Video.Volume, 0, 100, "video.volume", log);
         config.Video.MaxFileSizeMb = Clamp(config.Video.MaxFileSizeMb, 1, VideoConfig.MaxFileSizeCapMb, "video.maxFileSizeMb", log);
     }

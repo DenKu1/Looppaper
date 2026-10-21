@@ -86,6 +86,10 @@ in the log); a file that is not valid JSON is ignored and the defaults are used.
     "file": null,               // file name in the collection, or a full path; null = first .mp4 in the collection
     "volume": 0,                // 0..100; 0 = muted
     "maxFileSizeMb": 100        // larger videos are refused (logged) and pictures are shown; 100 is also the maximum
+  },
+  "wallpaperEngine": {
+    "workshopPath": null,       // Wallpaper Engine Workshop folder (...\\steamapps\\workshop\\content\\431960); null = found through Steam
+    "installPath": null         // folder with wallpaper64.exe; null = found through Steam
   }
 }
 ```

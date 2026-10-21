@@ -54,6 +54,9 @@ public sealed class LooppaperConfig
     /// <summary>ffmpeg.exe or its folder; null means search PATH, winget, scoop, Chocolatey and common folders.</summary>
     public string? FfmpegPath { get; set; }
 
+    /// <summary>Where to find Wallpaper Engine's Workshop downloads and install (Epic 8); null fields are searched for.</summary>
+    public WallpaperEngineConfig WallpaperEngine { get; set; } = new();
+
     /// <summary>Absolute collection folder with environment variables expanded.</summary>
     public string ResolveCollectionFolder() => AppPaths.ExpandPath(CollectionFolder);
 
@@ -96,4 +99,14 @@ public sealed class VideoConfig
     public int Volume { get; set; }
 
     public int MaxFileSizeMb { get; set; } = DefaultMaxFileSizeMb;
+}
+
+/// <summary>The <c>wallpaperEngine</c> section: overrides for the folders found through Steam.</summary>
+public sealed class WallpaperEngineConfig
+{
+    /// <summary>The Workshop content folder (<c>...\steamapps\workshop\content\431960</c>); null = find it through Steam.</summary>
+    public string? WorkshopPath { get; set; }
+
+    /// <summary>The Wallpaper Engine folder with <c>wallpaper64.exe</c>; null = find it through Steam.</summary>
+    public string? InstallPath { get; set; }
 }

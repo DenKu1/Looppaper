@@ -56,7 +56,7 @@ Use wallpapers the user already has from the Wallpaper Engine Steam Workshop. Lo
 the local Workshop downloads (it never downloads or redistributes Workshop content), and Wallpaper
 Engine itself is needed for converting scene wallpapers.
 
-- [ ] 8.1 Find the Workshop folder: Steam path from `HKCU\Software\Valve\Steam` (`SteamPath`) plus every
+- [x] 8.1 Find the Workshop folder: Steam path from `HKCU\Software\Valve\Steam` (`SteamPath`) plus every
       library in `steamapps\libraryfolders.vdf`, then `steamapps\workshop\content\431960`. Config override
       `"wallpaperEngine": { "workshopPath": null, "installPath": null }`.
 - [ ] 8.2 Read each item's `project.json` (title, type video / scene / web / application, file) and list them

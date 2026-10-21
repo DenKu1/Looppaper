@@ -174,6 +174,9 @@ public static class ConfigLoader
                 case "video":
                     ParseVideo(value, config.Video, log);
                     break;
+                case "wallpaperengine":
+                    ParseWallpaperEngine(value, config.WallpaperEngine, log);
+                    break;
                 default:
                     log.Warn($"Config: unknown field '{name}' ignored");
                     break;
@@ -235,6 +238,45 @@ public static class ConfigLoader
             }
         }
     }
+    private static void ParseWallpaperEngine(JsonNode? node, WallpaperEngineConfig section, ILog log)
+    {
+        if (node is null)
+        {
+            return;
+        }
+
+        if (node is not JsonObject obj)
+        {
+            log.Warn("Config: 'wallpaperEngine' must be an object; using defaults");
+            return;
+        }
+
+        foreach (var (name, value) in obj)
+        {
+            var path = "wallpaperEngine." + name;
+            switch (name.ToLowerInvariant())
+            {
+                case "workshoppath":
+                    if (ReadString(value, path, log, allowNull: true, out var workshop))
+                    {
+                        section.WorkshopPath = string.IsNullOrWhiteSpace(workshop) ? null : workshop;
+                    }
+
+                    break;
+                case "installpath":
+                    if (ReadString(value, path, log, allowNull: true, out var install))
+                    {
+                        section.InstallPath = string.IsNullOrWhiteSpace(install) ? null : install;
+                    }
+
+                    break;
+                default:
+                    log.Warn($"Config: unknown field '{path}' ignored");
+                    break;
+            }
+        }
+    }
+
     private static bool ReadString(JsonNode? node, string name, ILog log, bool allowNull, out string? value)
     {
         value = null;
