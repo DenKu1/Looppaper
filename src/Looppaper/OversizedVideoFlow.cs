@@ -21,7 +21,8 @@ internal enum OversizedVideoMode
 /// <summary>
 /// What happens to a video above the size limit (<c>video.maxFileSizeMb</c>, at most 100 MB): it is not
 /// played. Looppaper tells the person (file name, size, estimated result) and asks before compressing it
-/// with ffmpeg; it never compresses silently. A "no" is remembered per file version in
+/// with ffmpeg (found by <see cref="FfmpegLocator"/>, never bundled) into <see cref="AppPaths.CacheDirectory"/>;
+/// it never compresses silently and never changes the original. A "no" is remembered per file version in
 /// <see cref="AppPaths.CompressionStateFile"/> so the background wallpaper does not ask on every start.
 /// </summary>
 internal static class OversizedVideoFlow
@@ -218,14 +219,58 @@ internal static class OversizedVideoFlow
     /// <summary>Compresses into the cache folder; returns the copy, or null after reporting the failure.</summary>
     private static string? Compress(Offer offer, ILog log, OversizedVideoMode mode, CancellationToken cancellationToken)
     {
-        const string message = "Compression is not available yet.";
-        log.Warn(message);
-        if (mode == OversizedVideoMode.Console)
+        var console = mode == OversizedVideoMode.Console;
+        var compressor = new VideoCompressor(new FfmpegExecutor(offer.Tool), log);
+        if (console)
         {
-            ConsoleOutput.WriteLine(message);
+            compressor.Status += ConsoleOutput.WriteLine;
+            ConsoleOutput.WriteLine("Compressing (Ctrl+C cancels; the original is not changed).");
         }
 
-        return null;
+        var request = new CompressionRequest(offer.Key, offer.Info, VideoSizeLimit.Bytes(offer.MaxMb), AppPaths.CacheDirectory, offer.Screen);
+        var result = compressor.CompressAsync(request, new ProgressReport(console, log), cancellationToken).GetAwaiter().GetResult();
+        if (console)
+        {
+            ConsoleOutput.WriteLine(result.Message);
+        }
+
+        if (!result.Succeeded)
+        {
+            log.Warn($"Compressing {offer.Key.FullPath} did not succeed: {result.Message}");
+            if (!console && !result.Cancelled)
+            {
+                User32.MessageBox(
+                    IntPtr.Zero,
+                    $"Compressing {offer.Key.FullPath} failed.{Environment.NewLine}{Environment.NewLine}{result.Message}{Environment.NewLine}{Environment.NewLine}Pictures are shown instead. Details are in {AppPaths.LogFile}.",
+                    CompressionPrompt.Title,
+                    User32.MB_ICONWARNING | User32.MB_SETFOREGROUND | User32.MB_TOPMOST);
+            }
+
+            return null;
+        }
+
+        return result.OutputPath;
+    }
+
+    /// <summary>ffmpeg progress: a live line in the terminal, every 25% in the log.</summary>
+    private sealed class ProgressReport(bool console, ILog log) : IProgress<FfmpegProgress>
+    {
+        private int _loggedQuarter;
+
+        public void Report(FfmpegProgress value)
+        {
+            if (console)
+            {
+                ConsoleOutput.WriteProgress($"  {value}");
+            }
+
+            var quarter = value.Fraction is { } f ? (int)(f * 4) : 0;
+            if (quarter > _loggedQuarter && !value.Finished)
+            {
+                _loggedQuarter = quarter;
+                log.Info($"Compression {value}");
+            }
+        }
     }
 
     private sealed record Offer(VideoFileKey Key, int MaxMb, FfmpegTool Tool, MediaInfo Info, CompressionPlan Plan, PixelSize Screen);

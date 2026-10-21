@@ -28,18 +28,69 @@ internal static class ConsoleOutput
         }
     }
 
+    private static readonly object Gate = new();
+    private static int _progressLength;
+    private static DateTime _lastRedirectedProgress;
+
     public static void WriteLine(string text)
     {
-        try
+        lock (Gate)
         {
-            if (!WriteUnicode(text + Environment.NewLine))
+            try
             {
-                Console.Out.WriteLine(text);
-                Console.Out.Flush();
+                if (_progressLength > 0)
+                {
+                    // Finish the progress line first.
+                    _progressLength = 0;
+                    text = Environment.NewLine + text;
+                }
+
+                if (!WriteUnicode(text + Environment.NewLine))
+                {
+                    Console.Out.WriteLine(text);
+                    Console.Out.Flush();
+                }
+            }
+            catch (IOException)
+            {
             }
         }
-        catch (IOException)
+    }
+
+    /// <summary>
+    /// Shows a progress line that the next one overwrites (in a terminal), or writes it as a line at most
+    /// every few seconds (when output is redirected). The next <see cref="WriteLine"/> starts a new line.
+    /// </summary>
+    public static void WriteProgress(string text)
+    {
+        lock (Gate)
         {
+            try
+            {
+                if (Console.IsOutputRedirected || Kernel32.GetConsoleWindow() == IntPtr.Zero)
+                {
+                    if (DateTime.UtcNow - _lastRedirectedProgress < TimeSpan.FromSeconds(5))
+                    {
+                        return;
+                    }
+
+                    _lastRedirectedProgress = DateTime.UtcNow;
+                    Console.Out.WriteLine(text);
+                    Console.Out.Flush();
+                    return;
+                }
+
+                var line = "\r" + text.PadRight(_progressLength);
+                _progressLength = Math.Max(text.Length, 1);
+                if (!WriteUnicode(line))
+                {
+                    Console.Out.Write(line);
+                    Console.Out.Flush();
+                }
+            }
+            catch (IOException)
+            {
+            }
         }
     }
 

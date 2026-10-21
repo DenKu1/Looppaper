@@ -88,7 +88,7 @@ asking first.
       "Compress to fit under 100 MB? [y/N]"); when started in the background with no console, show a Windows
       notification or message box asking yes / no. Never compress silently. Remember a "no" per file so it does
       not ask on every start.
-- [ ] 9.3 Compress with ffmpeg (PATH, winget or config path; not bundled): target under 100 MB with a bitrate
+- [x] 9.3 Compress with ffmpeg (PATH, winget or config path; not bundled): target under 100 MB with a bitrate
       computed from the duration, scale down to screen resolution if larger, hardware encoder (NVENC / AMF / QSV)
       with CPU fallback, drop audio only if needed to fit. Write to `%LOCALAPPDATA%\Looppaper\cache`, never
       overwrite the original. Show progress in the console.
