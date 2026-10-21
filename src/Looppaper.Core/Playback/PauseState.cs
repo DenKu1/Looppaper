@@ -28,6 +28,9 @@ public enum PauseReason
 
     /// <summary>Running on battery.</summary>
     OnBattery = 64,
+
+    /// <summary>Paused on request (<c>--pause</c> or the tray icon) until resumed.</summary>
+    User = 128,
 }
 
 /// <summary>

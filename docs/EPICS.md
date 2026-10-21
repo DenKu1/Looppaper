@@ -143,8 +143,20 @@ asking first.
 
 ## Epic 7 — Optional control surface
 
-- [ ] `--next` / `--pause` commands sent to the running instance
-- [ ] Optional tray icon (off by default)
+Control the running wallpaper without a settings window: commands from a terminal (or a shortcut / script), and
+an optional notification-area icon that is off by default. Commands reach the running instance through a
+registered window message to its hidden control window and print what it is doing afterwards.
+
+- [x] 7.1 `--pause`, `--resume` and `--status` sent to the running instance. `--pause` is a pause reason of its own
+      next to the automatic ones (full-screen, lock, battery saver, ...), so `--resume` only lifts the user's pause and
+      playback still waits for the automatic ones; it lasts until `--resume` or Looppaper is restarted.
+- [ ] 7.2 `--next` / `--previous`: switch the slideshow to the next / previous picture now (the interval starts
+      again; previous goes back through the pictures already shown, also when shuffled). Single-picture mode and video
+      say there is nothing to switch to.
+- [ ] 7.3 Optional tray icon (`"trayIcon": false` by default, hot-reloadable): menu with next / previous picture,
+      pause / resume, open the collection folder, edit config.json, open the log and stop Looppaper; the tooltip shows
+      the state; double-click pauses / resumes; it comes back after Explorer restarts.
+- [ ] 7.4 Tests and README.
 
 ## Won't do (for now)
 

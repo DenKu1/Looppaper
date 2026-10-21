@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Looppaper.Core;
 using Looppaper.Core.CommandLine;
 using Looppaper.Core.Configuration;
+using Looppaper.Core.Control;
 using Looppaper.Core.Logging;
 using Looppaper.Core.Updates;
 using Looppaper.Desktop;
@@ -44,6 +45,11 @@ internal static class Program
         if (options.Stop)
         {
             return Stop(log);
+        }
+
+        if (options.Control is { } command)
+        {
+            return SendControl(command, log);
         }
 
         if (options.InstallStartup || options.UninstallStartup)
@@ -209,6 +215,26 @@ internal static class Program
         var result = UpdateCheck.Run(log);
         ConsoleOutput.WriteLine(result.Message);
         return result.Status == UpdateStatus.Failed ? 1 : 0;
+    }
+
+    private static int SendControl(ControlCommand command, ILog log)
+    {
+        var result = RemoteControl.Send(command, out var reply);
+        var message = result switch
+        {
+            RemoteControl.SendResult.Sent => reply.DescribeResult(command),
+            RemoteControl.SendResult.NotRunning => "Looppaper is not running.",
+            RemoteControl.SendResult.OlderVersion => "The running Looppaper is an older version without this command; restart it (--stop, then start Looppaper again).",
+            _ => "Looppaper is running but did not answer within 5 seconds.",
+        };
+        log.Info($"--{command.ToString().ToLowerInvariant()}: {message}");
+        ConsoleOutput.WriteLine(message);
+        return result switch
+        {
+            RemoteControl.SendResult.Sent => 0,
+            RemoteControl.SendResult.NotRunning => 3,
+            _ => 1,
+        };
     }
 
     private static int Stop(ILog log)

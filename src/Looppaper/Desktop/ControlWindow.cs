@@ -1,3 +1,4 @@
+using Looppaper.Core.Control;
 using Looppaper.Core.Logging;
 using Looppaper.Native;
 using System.Runtime.InteropServices;
@@ -15,6 +16,9 @@ internal interface IControlWindowHandler
 
     /// <summary>Windows is logging off or shutting down.</summary>
     void OnEndSession();
+
+    /// <summary>A command from another Looppaper process (<c>--pause</c>, <c>--status</c>, ...); returns the state after it.</summary>
+    ControlReply OnControl(ControlCommand command);
 }
 
 /// <summary>
@@ -25,13 +29,16 @@ internal interface IControlWindowHandler
 /// </summary>
 internal sealed unsafe class ControlWindow
 {
-    private const string ClassName = "LooppaperControlWindow";
+    /// <summary>Class and title other Looppaper processes look for to send commands (see <see cref="RemoteControl"/>).</summary>
+    public const string ClassName = "LooppaperControlWindow";
+    public const string Title = "Looppaper";
 
     private static ControlWindow? _instance;
 
     private readonly IControlWindowHandler _handler;
     private readonly ILog _log;
     private readonly uint _taskbarCreated;
+    private readonly uint _control = User32.RegisterWindowMessage(ControlReply.MessageName);
 
     private ControlWindow(IControlWindowHandler handler, ILog log, uint taskbarCreated)
     {
@@ -71,7 +78,7 @@ internal sealed unsafe class ControlWindow
 
         // Top-level (not message-only: those miss broadcasts), never shown.
         var hwnd = User32.CreateWindowEx(
-            User32.WS_EX_TOOLWINDOW | User32.WS_EX_NOACTIVATE, ClassName, "Looppaper", User32.WS_POPUP,
+            User32.WS_EX_TOOLWINDOW | User32.WS_EX_NOACTIVATE, ClassName, Title, User32.WS_POPUP,
             0, 0, 0, 0, IntPtr.Zero, IntPtr.Zero, hInstance, IntPtr.Zero);
         if (hwnd == IntPtr.Zero)
         {
@@ -86,6 +93,12 @@ internal sealed unsafe class ControlWindow
         if (window._taskbarCreated != 0)
         {
             User32.ChangeWindowMessageFilterEx(hwnd, window._taskbarCreated, User32.MSGFLT_ALLOW, IntPtr.Zero);
+        }
+
+        // Same for commands from a non-elevated terminal.
+        if (window._control != 0)
+        {
+            User32.ChangeWindowMessageFilterEx(hwnd, window._control, User32.MSGFLT_ALLOW, IntPtr.Zero);
         }
 
         return window;
@@ -138,6 +151,12 @@ internal sealed unsafe class ControlWindow
         {
             _handler.OnTaskbarCreated();
             return IntPtr.Zero;
+        }
+
+        if (msg == _control && msg != 0)
+        {
+            var command = (ControlCommand)(int)wParam;
+            return Enum.IsDefined(command) ? (IntPtr)_handler.OnControl(command).Encode() : IntPtr.Zero;
         }
 
         switch (msg)

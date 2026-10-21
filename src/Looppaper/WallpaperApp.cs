@@ -1,5 +1,6 @@
 using Looppaper.Core.Compression;
 using Looppaper.Core.Configuration;
+using Looppaper.Core.Control;
 using Looppaper.Core.Logging;
 using Looppaper.Core.Media;
 using Looppaper.Core.Playback;
@@ -223,6 +224,67 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         Shutdown();
     }
 
+    public ControlReply OnControl(ControlCommand command)
+    {
+        var applicable = true;
+        switch (command)
+        {
+            case ControlCommand.Pause or ControlCommand.Resume:
+                SetPausedByUser(command == ControlCommand.Pause, "command line");
+                break;
+            case ControlCommand.Next or ControlCommand.Previous:
+                applicable = false;
+                break;
+        }
+
+        return CurrentState(applicable);
+    }
+
+    /// <summary>The user's own pause (<c>--pause</c> / <c>--resume</c>), on top of the automatic ones.</summary>
+    private void SetPausedByUser(bool paused, string source)
+    {
+        if (_pause.Set(PauseReason.User, paused))
+        {
+            _log.Info($"{(paused ? "Paused" : "Resumed")} on request ({source})");
+            ApplyPause();
+        }
+    }
+
+    private ControlReply CurrentState(bool applicable = true)
+    {
+        var state = ControlState.Running;
+        if (_recovering)
+        {
+            state |= ControlState.WaitingForDesktop;
+        }
+
+        if (_video is not null)
+        {
+            state |= ControlState.Video;
+        }
+        else if (_pictures is not null)
+        {
+            state |= ControlState.Pictures | (_config.Mode == WallpaperMode.Slideshow ? ControlState.Slideshow : ControlState.None);
+        }
+
+        if (_pause.Reasons.HasFlag(PauseReason.User))
+        {
+            state |= ControlState.PausedByUser;
+        }
+
+        if (_pause.CoveredMonitors.Count > 0)
+        {
+            state |= ControlState.MonitorCovered;
+        }
+
+        if (!applicable)
+        {
+            state |= ControlState.NotApplicable;
+        }
+
+        return new ControlReply(state, _pause.Reasons & ~PauseReason.User);
+    }
+
     /// <summary>True when our window still lives in the current Explorer desktop.</summary>
     private bool IsAttached() =>
         _window is { IsAlive: true } && _host is { IsAlive: true } host && host.Progman == User32.FindWindow("Progman", null);
@@ -324,7 +386,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         var active = _power?.Active ?? PauseReason.None;
         foreach (var reason in Enum.GetValues<PauseReason>())
         {
-            if (reason is not (PauseReason.None or PauseReason.ExclusiveFullscreen))
+            if (reason is not (PauseReason.None or PauseReason.ExclusiveFullscreen or PauseReason.User))
             {
                 changed |= _pause.Set(reason, active.HasFlag(reason) && _config.Pause.Allows(reason));
             }

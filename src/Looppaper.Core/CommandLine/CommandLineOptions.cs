@@ -1,5 +1,6 @@
 using System.Globalization;
 using Looppaper.Core.Configuration;
+using Looppaper.Core.Control;
 
 namespace Looppaper.Core.CommandLine;
 
@@ -23,6 +24,9 @@ public sealed class CommandLineOptions
           --volume <0-100>       Video volume (0 = muted)
           --compress <file>      Compress a video for the wallpaper now, with progress (needs ffmpeg)
           --stop                 Stop the running instance and restore the wallpaper
+          --pause                Pause the running wallpaper (video and slideshow) until --resume
+          --resume               Resume after --pause
+          --status               Show what the running wallpaper is doing
           --install-startup      Start Looppaper when you sign in (current user)
           --uninstall-startup    Remove Looppaper from sign-in startup
           --we-list              List the Wallpaper Engine Workshop wallpapers downloaded on this PC
@@ -61,6 +65,9 @@ public sealed class CommandLineOptions
 
     public bool Stop { get; set; }
 
+    /// <summary>Command for the running instance (<c>--pause</c>, <c>--resume</c>, <c>--status</c>, ...).</summary>
+    public ControlCommand? Control { get; set; }
+
     public bool InstallStartup { get; set; }
 
     public bool UninstallStartup { get; set; }
@@ -96,7 +103,7 @@ public sealed class CommandLineOptions
     public List<string> Errors { get; } = [];
 
     /// <summary>True when the invocation performs a command and exits instead of running the wallpaper.</summary>
-    public bool IsCommand => WatchdogFor is not null || Help || Stop || InstallStartup || UninstallStartup || IsWallpaperEngineCommand || Compress is not null || CheckUpdate;
+    public bool IsCommand => WatchdogFor is not null || Help || Stop || Control is not null ||InstallStartup || UninstallStartup || IsWallpaperEngineCommand || Compress is not null || CheckUpdate;
 
     /// <summary>True for the Wallpaper Engine library commands (<c>--we-*</c>).</summary>
     public bool IsWallpaperEngineCommand => WeList || WeSet is not null || WePick || WeConvert is not null;

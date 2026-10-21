@@ -1,5 +1,6 @@
 using System.Globalization;
 using Looppaper.Core.Configuration;
+using Looppaper.Core.Control;
 
 namespace Looppaper.Core.CommandLine;
 
@@ -61,6 +62,16 @@ public static class CommandLineParser
                 }
             }
 
+            void SetControl(ControlCommand command)
+            {
+                if (options.Control is { } other && other != command)
+                {
+                    options.Errors.Add($"'--{name}' cannot be combined with '--{other.ToString().ToLowerInvariant()}'.");
+                }
+
+                options.Control = command;
+            }
+
             switch (name)
             {
                 case "config":
@@ -111,6 +122,18 @@ public static class CommandLineParser
                 case "stop":
                     NoValue();
                     options.Stop = true;
+                    break;
+                case "pause":
+                    NoValue();
+                    SetControl(ControlCommand.Pause);
+                    break;
+                case "resume":
+                    NoValue();
+                    SetControl(ControlCommand.Resume);
+                    break;
+                case "status":
+                    NoValue();
+                    SetControl(ControlCommand.Status);
                     break;
                 case "install-startup":
                     NoValue();

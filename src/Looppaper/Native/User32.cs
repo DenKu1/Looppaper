@@ -110,6 +110,8 @@ internal static unsafe partial class User32
     public const int SW_SHOWNA = 8;
 
     public const uint SMTO_NORMAL = 0x0000;
+    public const uint SMTO_ABORTIFHUNG = 0x0002;
+    public const uint SMTO_ERRORONEXIT = 0x0020;
 
     public const uint MSGFLT_ALLOW = 1;
 
