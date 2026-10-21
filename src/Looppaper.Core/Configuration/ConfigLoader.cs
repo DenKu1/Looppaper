@@ -164,6 +164,13 @@ public static class ConfigLoader
                     }
 
                     break;
+                case "ffmpegpath":
+                    if (ReadString(value, name, log, allowNull: true, out var ffmpeg))
+                    {
+                        config.FfmpegPath = string.IsNullOrWhiteSpace(ffmpeg) ? null : ffmpeg;
+                    }
+
+                    break;
                 case "video":
                     ParseVideo(value, config.Video, log);
                     break;

@@ -51,6 +51,9 @@ public sealed class LooppaperConfig
 
     public VideoConfig Video { get; set; } = new();
 
+    /// <summary>ffmpeg.exe or its folder; null means search PATH, winget, scoop, Chocolatey and common folders.</summary>
+    public string? FfmpegPath { get; set; }
+
     /// <summary>Absolute collection folder with environment variables expanded.</summary>
     public string ResolveCollectionFolder() => AppPaths.ExpandPath(CollectionFolder);
 

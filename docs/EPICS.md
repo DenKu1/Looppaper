@@ -46,7 +46,7 @@ Tasks:
 
 - [x] S.1 Console-subsystem exe with the "detached" console allocation policy: commands print and prompt in the
       terminal (which waits for them); the wallpaper itself runs as a background copy with no console window.
-- [ ] S.2 One ffmpeg locator (config `ffmpegPath`, PATH, winget, scoop, Chocolatey, common folders) with version check,
+- [x] S.2 One ffmpeg locator (config `ffmpegPath`, PATH, winget, scoop, Chocolatey, common folders) with version check,
       an ffprobe reader and a runner that reports progress.
 
 ## Epic 8 — Wallpaper Engine library (next up)

@@ -79,6 +79,7 @@ in the log); a file that is not valid JSON is ignored and the defaults are used.
   "scaling": "fill",            // "fill" | "fit" | "stretch" | "center"
   "backgroundColor": "#000000", // shown around "fit"/"center" pictures and when there is nothing to show
   "maxPictureSizeMb": 50,       // larger pictures are skipped (cap 200)
+  "ffmpegPath": null,          // ffmpeg.exe or its folder; null = search PATH, winget, scoop, Chocolatey (only needed for conversion)
   "video": {
     "enabled": true,            // false = always show pictures
     "file": null,               // file name in the collection, or a full path; null = first .mp4 in the collection
