@@ -32,8 +32,11 @@ internal static class ConsoleOutput
     {
         try
         {
-            Console.Out.WriteLine(text);
-            Console.Out.Flush();
+            if (!WriteUnicode(text + Environment.NewLine))
+            {
+                Console.Out.WriteLine(text);
+                Console.Out.Flush();
+            }
         }
         catch (IOException)
         {
@@ -50,13 +53,41 @@ internal static class ConsoleOutput
 
         try
         {
-            Console.Out.Write(question);
-            Console.Out.Flush();
+            if (!WriteUnicode(question))
+            {
+                Console.Out.Write(question);
+                Console.Out.Flush();
+            }
+
             return Console.In.ReadLine();
         }
         catch (IOException)
         {
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Writes straight to a real console with WriteConsoleW, so any text (e.g. Japanese or Chinese
+    /// wallpaper titles) shows correctly whatever the console code page is. False when output is redirected.
+    /// </summary>
+    private static unsafe bool WriteUnicode(string text)
+    {
+        if (Console.IsOutputRedirected || Kernel32.GetConsoleWindow() == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        var handle = Kernel32.GetStdHandle(Kernel32.STD_OUTPUT_HANDLE);
+        if (handle == IntPtr.Zero || handle == new IntPtr(-1))
+        {
+            return false;
+        }
+
+        Console.Out.Flush();
+        fixed (char* chars = text)
+        {
+            return Kernel32.WriteConsole(handle, chars, (uint)text.Length, out _, IntPtr.Zero);
         }
     }
 

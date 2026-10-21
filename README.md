@@ -116,12 +116,42 @@ Looppaper.exe [options]
   --stop                 Stop the running instance and restore the wallpaper
   --install-startup      Start Looppaper when you sign in (current user)
   --uninstall-startup    Remove Looppaper from sign-in startup
+  --we-list              List the Wallpaper Engine Workshop wallpapers downloaded on this PC
   --help                 Show this help
 ```
 
 Command-line options override the config file for that run only; the file is not changed.
 
 Commands such as `--help` and `--stop` print their result in the terminal you run them from. Starting the wallpaper from a terminal hands it to a background copy and returns straight away, so you can close the terminal. Started from Explorer or at sign-in no console window appears (Windows 11 24H2 and later; older Windows may flash a console window for a moment).
+
+## Wallpaper Engine wallpapers
+
+If you own [Wallpaper Engine](https://store.steampowered.com/app/431960/Wallpaper_Engine/), Looppaper can
+use the wallpapers you subscribed to in its Steam Workshop. Looppaper only reads the Workshop downloads
+already on your PC; it never downloads, uploads or redistributes Workshop content.
+
+The Workshop folder is found through Steam (`HKCU\Software\Valve\Steam` and every library in
+`steamapps\libraryfolders.vdf`, then `steamapps\workshop\content\431960`). If yours is somewhere else, set
+`wallpaperEngine.workshopPath` (and `wallpaperEngine.installPath` for the folder with `wallpaper64.exe`) in
+`config.json`.
+
+```
+Looppaper.exe --we-list
+ #  Workshop id  Type       Size  Status            Title
+ 1  2530355779   scene    8.5 MB  needs conversion  Astronaut
+ 2  3592016945   scene   21.5 MB  needs conversion  Mystery wizard
+```
+
+The list is sorted by type (video, scene, web, application), then title, so the numbers stay the same
+until you subscribe to or remove a wallpaper. Statuses:
+
+| Status | Meaning |
+|---|---|
+| ready | an `.mp4` video within the 100 MB limit; played as it is |
+| too large | a video over 100 MB; it has to be compressed first |
+| needs conversion | a scene or web wallpaper; it is recorded to a looping `.mp4` first |
+| converted | a scene or web wallpaper already recorded (in `%LOCALAPPDATA%\Looppaper\cache`) |
+| unsupported | an application wallpaper, a video that is not `.mp4`, or a broken item |
 
 ## Logs
 

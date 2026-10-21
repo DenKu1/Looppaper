@@ -24,6 +24,7 @@ public sealed class CommandLineOptions
           --stop                 Stop the running instance and restore the wallpaper
           --install-startup      Start Looppaper when you sign in (current user)
           --uninstall-startup    Remove Looppaper from sign-in startup
+          --we-list              List the Wallpaper Engine Workshop wallpapers downloaded on this PC
           --help                 Show this help
 
         Without a command, Looppaper starts the wallpaper; from a terminal it continues in the background.
@@ -56,13 +57,19 @@ public sealed class CommandLineOptions
 
     public bool Help { get; set; }
 
+    /// <summary>List the local Wallpaper Engine Workshop items.</summary>
+    public bool WeList { get; set; }
+
     /// <summary>Internal: set on the copy that a terminal launch starts in the background. Not shown in help.</summary>
     public bool Background { get; set; }
 
     public List<string> Errors { get; } = [];
 
     /// <summary>True when the invocation performs a command and exits instead of running the wallpaper.</summary>
-    public bool IsCommand => Help || Stop || InstallStartup || UninstallStartup;
+    public bool IsCommand => Help || Stop || InstallStartup || UninstallStartup || IsWallpaperEngineCommand;
+
+    /// <summary>True for the Wallpaper Engine library commands (<c>--we-*</c>).</summary>
+    public bool IsWallpaperEngineCommand => WeList;
 
     public void ApplyTo(LooppaperConfig config)
     {

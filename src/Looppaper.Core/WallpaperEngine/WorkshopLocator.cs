@@ -46,7 +46,11 @@ public static class WorkshopLocator
         {
             if (File.Exists(vdf))
             {
-                libraries.AddRange(LibraryPaths(File.ReadAllText(vdf)).Select(Normalize).OfType<string>());
+                var listed = LibraryPaths(File.ReadAllText(vdf)).Select(Normalize).OfType<string>().ToList();
+
+                // SteamPath is stored in lower case; prefer the library file's spelling of the same folder.
+                libraries[0] = listed.FirstOrDefault(l => string.Equals(l, steam, StringComparison.OrdinalIgnoreCase)) ?? steam;
+                libraries.AddRange(listed);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

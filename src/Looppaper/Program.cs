@@ -4,6 +4,7 @@ using Looppaper.Core.CommandLine;
 using Looppaper.Core.Configuration;
 using Looppaper.Core.Logging;
 using Looppaper.Desktop;
+using Looppaper.WallpaperEngine;
 
 namespace Looppaper;
 
@@ -40,6 +41,11 @@ internal static class Program
         var config = ConfigLoader.LoadOrCreate(configPath, log);
         options.ApplyTo(config);
         ConfigValidator.Normalize(config, log);
+
+        if (options.IsWallpaperEngineCommand)
+        {
+            return new WallpaperEngineCommands(options, config, configPath, log).Run();
+        }
 
         log.Info($"Looppaper {typeof(Program).Assembly.GetName().Version} starting on {Environment.OSVersion.VersionString}; config {configPath}; overrides {options}");
         log.Info($"Collection {config.ResolveCollectionFolder()}, mode {config.Mode}, interval {config.IntervalSeconds}s, scaling {config.Scaling}");

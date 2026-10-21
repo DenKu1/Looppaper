@@ -59,7 +59,7 @@ Engine itself is needed for converting scene wallpapers.
 - [x] 8.1 Find the Workshop folder: Steam path from `HKCU\Software\Valve\Steam` (`SteamPath`) plus every
       library in `steamapps\libraryfolders.vdf`, then `steamapps\workshop\content\431960`. Config override
       `"wallpaperEngine": { "workshopPath": null, "installPath": null }`.
-- [ ] 8.2 Read each item's `project.json` (title, type video / scene / web / application, file) and list them
+- [x] 8.2 Read each item's `project.json` (title, type video / scene / web / application, file) and list them
       in the console with a number, Workshop id, type, title, size and status (ready / needs conversion /
       too large / unsupported): `--we-list`.
 - [ ] 8.3 Choose one from the console: `--we-set <number|id>`, plus an interactive picker (`--we-pick`) that

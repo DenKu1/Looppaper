@@ -2,8 +2,17 @@ using System.Runtime.InteropServices;
 
 namespace Looppaper.Native;
 
-internal static partial class Kernel32
+internal static unsafe partial class Kernel32
 {
+    public const int STD_OUTPUT_HANDLE = -11;
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    public static partial IntPtr GetStdHandle(int nStdHandle);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "WriteConsoleW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool WriteConsole(IntPtr hConsoleOutput, char* lpBuffer, uint nNumberOfCharsToWrite, out uint lpNumberOfCharsWritten, IntPtr lpReserved);
+
     [LibraryImport("kernel32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool FreeConsole();
