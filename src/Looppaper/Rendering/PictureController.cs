@@ -35,6 +35,13 @@ internal sealed class PictureController
     private string? _shownPath;
     private bool _shownSomething;
     private bool _warnedMissingPicture;
+    private bool _paused;
+
+    /// <summary>When the next slideshow step is due (<see cref="Environment.TickCount64"/>), kept across pauses.</summary>
+    private long _dueAt;
+
+    /// <summary>The slideshow timer is running for the rest of an interval after a pause.</summary>
+    private bool _shortTimer;
     private readonly Dictionary<string, DateTime> _bad = new(StringComparer.OrdinalIgnoreCase);
 
     public PictureController(LooppaperConfig config, ILog log, WallpaperWindow window, IntPtr messageWindow, DesktopHost host, FrameCache frame)
@@ -54,12 +61,14 @@ internal sealed class PictureController
 
     private bool IsSlideshow => _config.Mode == WallpaperMode.Slideshow;
 
+    private uint IntervalMs => (uint)Math.Min(_config.IntervalSeconds * 1000L, uint.MaxValue);
+
     public void Start()
     {
         if (IsSlideshow)
         {
-            var ms = (uint)Math.Min(_config.IntervalSeconds * 1000L, uint.MaxValue);
-            User32.SetTimer(_messageWindow, TimerId, ms, IntPtr.Zero);
+            User32.SetTimer(_messageWindow, TimerId, IntervalMs, IntPtr.Zero);
+            _dueAt = Environment.TickCount64 + IntervalMs;
             _log.Info($"Slideshow every {_config.IntervalSeconds}s{(_config.Shuffle ? ", shuffled" : string.Empty)}");
         }
 
@@ -71,12 +80,65 @@ internal sealed class PictureController
         User32.KillTimer(_messageWindow, TimerId);
     }
 
+    /// <summary>Holds the slideshow (and the empty-folder rescan) while nothing can be seen; resuming keeps the remaining interval.</summary>
+    public void SetPaused(bool paused)
+    {
+        if (paused == _paused)
+        {
+            return;
+        }
+
+        _paused = paused;
+        if (paused)
+        {
+            User32.KillTimer(_messageWindow, TimerId);
+            if (IsSlideshow)
+            {
+                _log.Info("Slideshow paused");
+            }
+
+            return;
+        }
+
+        if (IsSlideshow)
+        {
+            var remaining = _dueAt - Environment.TickCount64;
+            _log.Info($"Slideshow resumed; next picture in {Math.Max(remaining, 0) / 1000}s");
+            if (remaining <= 0)
+            {
+                User32.SetTimer(_messageWindow, TimerId, IntervalMs, IntPtr.Zero);
+                _dueAt = Environment.TickCount64 + IntervalMs;
+                Advance();
+            }
+            else
+            {
+                User32.SetTimer(_messageWindow, TimerId, (uint)Math.Min(remaining, uint.MaxValue), IntPtr.Zero);
+                _shortTimer = true;
+            }
+        }
+        else if (_shownSomething && _shownPath is null)
+        {
+            User32.SetTimer(_messageWindow, TimerId, EmptyRescanMs, IntPtr.Zero);
+        }
+    }
+
     /// <summary>Handles the controller's window messages. Returns true when handled.</summary>
     public bool OnMessage(uint msg, IntPtr wParam, IntPtr lParam)
     {
         switch (msg)
         {
             case User32.WM_TIMER when (nuint)wParam == TimerId:
+                if (IsSlideshow)
+                {
+                    if (_shortTimer)
+                    {
+                        _shortTimer = false;
+                        User32.SetTimer(_messageWindow, TimerId, IntervalMs, IntPtr.Zero);
+                    }
+
+                    _dueAt = Environment.TickCount64 + IntervalMs;
+                }
+
                 Advance();
                 return true;
             case WM_FRAME_READY when (int)wParam != _generation:
@@ -257,7 +319,10 @@ internal sealed class PictureController
             // Single mode only keeps polling while there is nothing but background to show.
             if (_shownPath is null)
             {
-                User32.SetTimer(_messageWindow, TimerId, EmptyRescanMs, IntPtr.Zero);
+                if (!_paused)
+                {
+                    User32.SetTimer(_messageWindow, TimerId, EmptyRescanMs, IntPtr.Zero);
+                }
             }
             else
             {

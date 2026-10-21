@@ -28,6 +28,7 @@ public static class ConfigValidator
         }
 
         config.Video ??= new VideoConfig();
+        config.Pause ??= new PauseConfig();
         config.WallpaperEngine ??= new WallpaperEngineConfig();
         config.Video.Volume = Clamp(config.Video.Volume, 0, 100, "video.volume", log);
     }

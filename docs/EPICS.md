@@ -41,7 +41,7 @@ Pausing covers both the video (Media Engine paused, so the GPU decoder idles) an
 - [x] 2.1 Explorer restart recovery: a hidden top-level control window owns the message loop and receives
       `TaskbarCreated`; when Explorer restarts (or the wallpaper window's parent disappears) Looppaper finds the
       new desktop host, recreates its window and restarts the video or pictures instead of exiting.
-- [ ] 2.2 Pause on fullscreen app / game: while the foreground window covers its whole monitor (or Windows reports
+- [x] 2.2 Pause on fullscreen app / game: while the foreground window covers its whole monitor (or Windows reports
       a full-screen Direct3D app or presentation mode) playback pauses, and resumes when that window goes away.
       Config `pause.onFullscreen` (default true).
 - [ ] 2.3 Pause on lock, sleep, display off and battery saver: session lock / disconnect (`pause.onLock`, default

@@ -60,6 +60,9 @@ public sealed class LooppaperConfig
 
     public VideoConfig Video { get; set; } = new();
 
+    /// <summary>When to pause the video and the slideshow because nobody can see them (Epic 2).</summary>
+    public PauseConfig Pause { get; set; } = new();
+
     /// <summary>ffmpeg.exe or its folder; null means search PATH, winget, scoop, Chocolatey and common folders.</summary>
     public string? FfmpegPath { get; set; }
 
@@ -110,6 +113,13 @@ public sealed class VideoConfig
     /// re-encoded at a wallpaper-friendly bitrate. The original is kept. False plays videos as they are.
     /// </summary>
     public bool Compress { get; set; } = true;
+}
+
+/// <summary>The <c>pause</c> section: when playback pauses. Paused video keeps its last frame; the slideshow holds.</summary>
+public sealed class PauseConfig
+{
+    /// <summary>Pause while a full-screen app or game covers a monitor (only that monitor, unless it is an exclusive full-screen game).</summary>
+    public bool OnFullscreen { get; set; } = true;
 }
 
 /// <summary>The <c>wallpaperEngine</c> section: overrides for the folders found through Steam.</summary>

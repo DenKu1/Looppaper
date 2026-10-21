@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Looppaper.Core.Configuration;
 using Looppaper.Core.Logging;
+using Looppaper.Core.Playback;
 using Looppaper.Core.Rendering;
 using Looppaper.Desktop;
 using Looppaper.Native;
@@ -108,6 +109,29 @@ internal sealed unsafe class VideoController
         }
 
         return true;
+    }
+
+    /// <summary>Pauses the players whose monitor cannot be seen and resumes the others. Paused video keeps its frame.</summary>
+    public void ApplyPause(PauseState state)
+    {
+        foreach (var player in _players)
+        {
+            var paused = state.IsPaused(player.Bounds);
+            if (paused == player.Paused || player.Engine == IntPtr.Zero)
+            {
+                continue;
+            }
+
+            var hr = paused ? MediaFoundation.Pause(player.Engine) : MediaFoundation.Play(player.Engine);
+            if (hr < 0)
+            {
+                _log.Warn($"Video: {(paused ? "pausing" : "resuming")} monitor {player.Monitor + 1} failed (0x{hr:X8})");
+                continue;
+            }
+
+            player.Paused = paused;
+            _log.Info($"Video {(paused ? "paused" : "resumed")} on monitor {player.Monitor + 1}");
+        }
     }
 
     public void Stop()
@@ -272,5 +296,6 @@ internal sealed unsafe class VideoController
         public IntPtr Engine;
         public IntPtr EngineEx;
         public bool LoggedPlaying;
+        public bool Paused;
     }
 }

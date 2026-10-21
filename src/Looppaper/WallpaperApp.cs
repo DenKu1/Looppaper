@@ -2,6 +2,7 @@ using Looppaper.Core.Compression;
 using Looppaper.Core.Configuration;
 using Looppaper.Core.Logging;
 using Looppaper.Core.Media;
+using Looppaper.Core.Playback;
 using Looppaper.Desktop;
 using Looppaper.Native;
 using Looppaper.Rendering;
@@ -26,6 +27,11 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     /// <summary>How often to look for Explorer's desktop again while it is missing.</summary>
     private const uint RecoverRetryMs = 2000;
 
+    private const nuint FullscreenTimerId = 11;
+
+    /// <summary>How often to look for a full-screen app in the foreground.</summary>
+    private const uint FullscreenPollMs = 2000;
+
     private readonly LooppaperConfig _config;
     private readonly ILog _log;
     private readonly IntPtr _backgroundBrush;
@@ -35,6 +41,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     private DesktopHost? _host;
     private PictureController? _pictures;
     private VideoController? _video;
+    private readonly PauseState _pause = new();
     private readonly CancellationTokenSource _cancel = new();
     private Task? _compression;
     private volatile string? _compressedPath;
@@ -55,6 +62,11 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         if (_control is null)
         {
             return 1;
+        }
+
+        if (_config.Pause.OnFullscreen)
+        {
+            User32.SetTimer(_control.Handle, FullscreenTimerId, FullscreenPollMs, IntPtr.Zero);
         }
 
         if (AttachToDesktop())
@@ -127,6 +139,9 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
                 return true;
             case User32.WM_TIMER when (nuint)wParam == RecoverTimerId:
                 Recover();
+                return true;
+            case User32.WM_TIMER when (nuint)wParam == FullscreenTimerId:
+                CheckFullscreen();
                 return true;
             case PictureController.WM_FRAME_READY when _pictures is null:
                 // A picture finished rendering after the switch to video (or a rebuild); drop it.
@@ -204,6 +219,26 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         }
     }
 
+    /// <summary>Polled: pauses the monitor a full-screen window covers, or everything for an exclusive full-screen game.</summary>
+    private void CheckFullscreen()
+    {
+        var (covered, exclusive) = FullscreenDetector.Check();
+        var changed = _pause.SetCovered(covered is { } monitor ? [monitor] : []);
+        changed |= _pause.Set(PauseReason.ExclusiveFullscreen, exclusive);
+        if (changed)
+        {
+            ApplyPause();
+        }
+    }
+
+    /// <summary>Applies <see cref="_pause"/> to whatever is shown.</summary>
+    private void ApplyPause()
+    {
+        _log.Info($"Wallpaper {_pause}");
+        _video?.ApplyPause(_pause);
+        _pictures?.SetPaused(_pause.IsPausedEverywhere(Monitors.RelativeToVirtualScreen().ToList()));
+    }
+
     private void StopContent()
     {
         _video?.Stop();
@@ -253,6 +288,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
             _log.Warn("Falling back to pictures");
             StartPictures();
         };
+        video.ApplyPause(_pause);
         ResourceSaver.Trim();
         return true;
     }
@@ -353,6 +389,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         _pictures = new PictureController(_config, _log, _window, _control!.Handle, _host!, _frame);
         _pictures.FrameShown += ResourceSaver.Trim;
         _pictures.Start();
+        _pictures.SetPaused(_pause.IsPausedEverywhere(Monitors.RelativeToVirtualScreen().ToList()));
     }
 
     private void Shutdown()

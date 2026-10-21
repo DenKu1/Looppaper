@@ -181,6 +181,9 @@ public static class ConfigLoader
                 case "video":
                     ParseVideo(value, config.Video, log);
                     break;
+                case "pause":
+                    ParsePause(value, config.Pause, log);
+                    break;
                 case "wallpaperengine":
                     ParseWallpaperEngine(value, config.WallpaperEngine, log);
                     break;
@@ -249,6 +252,38 @@ public static class ConfigLoader
             }
         }
     }
+    private static void ParsePause(JsonNode? node, PauseConfig pause, ILog log)
+    {
+        if (node is null)
+        {
+            return;
+        }
+
+        if (node is not JsonObject obj)
+        {
+            log.Warn("Config: 'pause' must be an object; using defaults");
+            return;
+        }
+
+        foreach (var (name, value) in obj)
+        {
+            var path = "pause." + name;
+            switch (name.ToLowerInvariant())
+            {
+                case "onfullscreen":
+                    if (ReadBool(value, path, log, out var onFullscreen))
+                    {
+                        pause.OnFullscreen = onFullscreen;
+                    }
+
+                    break;
+                default:
+                    log.Warn($"Config: unknown field '{path}' ignored");
+                    break;
+            }
+        }
+    }
+
     private static void ParseWallpaperEngine(JsonNode? node, WallpaperEngineConfig section, ILog log)
     {
         if (node is null)
