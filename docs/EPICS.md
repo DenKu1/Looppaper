@@ -182,10 +182,10 @@ Public since 2026-10-21.
 - [x] 11.5 `CONTRIBUTING.md`, issue and pull-request templates, `SECURITY.md`, optional code of conduct.
       No code of conduct for now. `SECURITY.md` points to GitHub private vulnerability reporting, which has to be
       turned on (done with 11.7).
-- [ ] 11.6 Turn on what public visibility makes possible: free CI minutes, the update check (`--check-update`
+- [x] 11.6 Turn on what public visibility makes possible: free CI minutes, the update check (`--check-update`
       can see public releases), winget submission (6.2), optional free code signing (e.g. SignPath for open source).
       Done: private vulnerability reporting is on, CI runs on the free public minutes, and v0.2.0 is released (the
-      update check sees it; the winget manifest validates). Still open: submitting to winget-pkgs; applying for free signing.
+      update check sees it; the winget manifest validates). winget submission and free signing moved to Epic 12.
 - [x] 11.7 Switch the repository to public. Done by the owner, or by an assistant only with the owner's explicit
       go-ahead; always the last step. Switched on 2026-10-21 with the owner's go-ahead.
 ## Won't do (for now)
@@ -210,3 +210,15 @@ Parked; kept here so the ideas are not lost.
 - [ ] Fade audio in / out on start and stop
 - [ ] Ducking or muting when other apps play audio
 - [ ] Media keys / global hotkeys (mute, volume)
+
+### Epic 12 — Store and signing
+
+Each of these adds something the owner has to keep doing after every release, so they are parked.
+
+- [ ] Submit `DenKu1.Looppaper` to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) (the manifest
+      from `New-WingetManifest.ps1` validates for 0.2.0), then one manifest pull request per release. Needs the
+      Microsoft contributor agreement signed once; published release zips must never be replaced (winget checks the
+      SHA-256).
+- [ ] Free code signing through the [SignPath Foundation](https://signpath.org/apply): two-factor sign-in on GitHub,
+      a "Code signing policy" section on the README and release page (credit, team roles, privacy note for the update
+      check), a SignPath step in `release.yml`, and a manual approval for every signing request.

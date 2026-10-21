@@ -1,17 +1,11 @@
-# Security policy
+# Security
 
-## Supported versions
+Looppaper is a personal project, provided as is under the [MIT License](LICENSE), without warranty or support.
+There is no commitment to answer reports, fix problems or publish advisories.
 
-Only the latest [release](https://github.com/DenKu1/Looppaper/releases/latest) gets fixes.
-
-## Reporting a vulnerability
-
-Please do not open a public issue for a security problem. Report it privately through
+If you find a security problem, you can report it privately through
 [GitHub's private vulnerability reporting](https://github.com/DenKu1/Looppaper/security/advisories/new)
-with a description, the steps to reproduce it and the Looppaper version.
-
-You should get an answer within a week. Once a fix is released, the advisory is published with credit to
-you unless you prefer otherwise.
+instead of opening a public issue. Reports may be looked at when time allows.
 
 Looppaper runs as your own user without admin rights, reads only local files, and contacts the network only
-for the optional GitHub update check, so reports about those areas are the most useful.
+for the optional GitHub update check (off by default).

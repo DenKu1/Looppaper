@@ -1,6 +1,7 @@
 # Contributing to Looppaper
 
-Thanks for helping. Looppaper is a small personal project, so replies can take a few days.
+Thanks for helping. Looppaper is a small personal project maintained in spare time, so there is no promise
+that issues or pull requests get an answer.
 
 ## Reporting a bug
 
