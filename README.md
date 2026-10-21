@@ -119,6 +119,9 @@ Looppaper.exe [options]
   --uninstall-startup    Remove Looppaper from sign-in startup
   --we-list              List the Wallpaper Engine Workshop wallpapers downloaded on this PC
   --check-update         Check GitHub once for a newer release and print the result (never downloads)
+  --we-set <number|id>   Use that Wallpaper Engine wallpaper (number from --we-list, or Workshop id)
+  --we-pick              Show the list and ask which Wallpaper Engine wallpaper to use
+  --no-restart           With --we-set / --we-pick: only update config.json, don't restart Looppaper
   --help                 Show this help
 ```
 
@@ -154,6 +157,11 @@ until you subscribe to or remove a wallpaper. Statuses:
 | needs conversion | a scene or web wallpaper; it is recorded to a looping `.mp4` first |
 | converted | a scene or web wallpaper already recorded (in `%LOCALAPPDATA%\Looppaper\cache`) |
 | unsupported | an application wallpaper, a video that is not `.mp4`, or a broken item |
+
+To use one, run `Looppaper.exe --we-set <number or Workshop id>`, or `Looppaper.exe --we-pick` to see the
+list and type a number. Looppaper writes `"video": { "enabled": true, "file": "<full path>" }` into
+`config.json` (your other settings are kept; comments in the file are not) and restarts a running Looppaper
+so the new wallpaper shows straight away. Add `--no-restart` to only change the config.
 
 ## Logs
 

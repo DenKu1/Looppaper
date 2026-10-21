@@ -124,6 +124,17 @@ public static class CommandLineParser
                     NoValue();
                     options.WeList = true;
                     break;
+                case "we-set":
+                    options.WeSet = NonEmpty(TakeValue(), name, options);
+                    break;
+                case "we-pick":
+                    NoValue();
+                    options.WePick = true;
+                    break;
+                case "no-restart":
+                    NoValue();
+                    options.NoRestart = true;
+                    break;
                 case "background":
                     NoValue();
                     options.Background = true;
@@ -145,6 +156,12 @@ public static class CommandLineParser
         if (options.InstallStartup && options.UninstallStartup)
         {
             options.Errors.Add("'--install-startup' and '--uninstall-startup' cannot be combined.");
+        }
+
+        var weCommands = new[] { options.WeList, options.WeSet is not null, options.WePick }.Count(c => c);
+        if (weCommands > 1)
+        {
+            options.Errors.Add("Use only one of '--we-list', '--we-set' and '--we-pick' at a time.");
         }
 
         if (options.Video is not null && options.NoVideo)

@@ -13,7 +13,7 @@ namespace Looppaper.Core.Configuration;
 /// </summary>
 public static class ConfigLoader
 {
-    private const string Header =
+    internal const string Header =
         "// Looppaper configuration. Comments and trailing commas are allowed.\r\n" +
         "// See https://github.com/DenKu1/Looppaper#configuration for every field.\r\n";
 

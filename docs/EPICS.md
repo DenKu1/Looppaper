@@ -62,7 +62,7 @@ Engine itself is needed for converting scene wallpapers.
 - [x] 8.2 Read each item's `project.json` (title, type video / scene / web / application, file) and list them
       in the console with a number, Workshop id, type, title, size and status (ready / needs conversion /
       too large / unsupported): `--we-list`.
-- [ ] 8.3 Choose one from the console: `--we-set <number|id>`, plus an interactive picker (`--we-pick`) that
+- [x] 8.3 Choose one from the console: `--we-set <number|id>`, plus an interactive picker (`--we-pick`) that
       prompts for a number. Updates `config.json` and restarts a running Looppaper.
 - [ ] 8.4 Video items: use the `.mp4` directly when it is within the 100 MB limit; larger ones go through
       Epic 9 (oversized video compression).
