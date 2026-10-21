@@ -1,0 +1,116 @@
+name: release
+
+# Pushing a version tag publishes a GitHub Release:
+#   git tag v0.2.0 && git push origin v0.2.0
+# Tags with a pre-release suffix (v0.3.0-beta.1) become pre-releases.
+# Running the workflow by hand (workflow_dispatch) is a dry run: it builds and packs the zip and
+# uploads it as a workflow artifact, but creates no tag and no release.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version for the dry-run package (X.Y.Z); empty = the version in Directory.Build.props'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        id: version
+        shell: pwsh
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:EVENT -eq 'push') {
+            $version = $env:REF_NAME -replace '^v', ''
+          } elseif ($env:INPUT_VERSION) {
+            $version = $env:INPUT_VERSION -replace '^v', ''
+          } else {
+            $match = Select-String -Path Directory.Build.props -Pattern '<Version[^>]*>([^<]+)</Version>' | Select-Object -First 1
+            $version = $match.Matches[0].Groups[1].Value.Trim()
+          }
+          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+            throw "'$version' is not a version like 1.2.3 or 1.2.3-beta.1"
+          }
+          $prerelease = if ($version.Contains('-')) { 'true' } else { 'false' }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "prerelease=$prerelease" >> $env:GITHUB_OUTPUT
+          Write-Host "Version $version (prerelease: $prerelease)"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal
+
+      - name: Publish
+        run: dotnet publish src/Looppaper -p:PublishProfile=win-x64 -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Check version stamp
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $info = (Get-Item publish/Looppaper.exe).VersionInfo
+          Write-Host "ProductVersion $($info.ProductVersion), FileVersion $($info.FileVersion)"
+          if (-not $info.ProductVersion.StartsWith($env:VERSION)) {
+            throw "Looppaper.exe has product version $($info.ProductVersion), expected $env:VERSION"
+          }
+
+      - name: Package
+        shell: pwsh
+        run: ./scripts/package-release.ps1 -Version '${{ steps.version.outputs.version }}' -PublishDir publish -OutputDir artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Looppaper-${{ steps.version.outputs.version }}-win-x64
+          path: |
+            artifacts/Looppaper-${{ steps.version.outputs.version }}-win-x64.zip
+            artifacts/Looppaper-${{ steps.version.outputs.version }}-win-x64.zip.sha256
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          $zip = "artifacts/Looppaper-$env:VERSION-win-x64.zip"
+          $arguments = @(
+            'release', 'create', $env:TAG, $zip, "$zip.sha256",
+            '--repo', $env:GITHUB_REPOSITORY,
+            '--verify-tag',
+            '--title', "Looppaper $env:VERSION",
+            '--generate-notes'
+          )
+          if ($env:PRERELEASE -eq 'true') { $arguments += '--prerelease' }
+          gh @arguments
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed ($LASTEXITCODE)" }

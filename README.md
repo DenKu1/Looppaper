@@ -10,8 +10,9 @@ Everything is configured with a JSON file and command-line switches.
 
 No admin rights and no .NET install needed.
 
-1. Download `Looppaper-win-x64.zip` from the latest [build artifact](https://github.com/DenKu1/Looppaper/actions/workflows/build.yml)
-   (or build it yourself, see below) and extract it.
+1. Download `Looppaper-X.Y.Z-win-x64.zip` from the latest [release](https://github.com/DenKu1/Looppaper/releases)
+   (or `Looppaper-win-x64.zip` from a [build artifact](https://github.com/DenKu1/Looppaper/actions/workflows/build.yml),
+   or build it yourself, see below) and extract it.
 2. In the extracted folder run:
 
    ```powershell
@@ -121,6 +122,27 @@ Commands such as `--help` and `--stop` print their result in the terminal you ru
 ## Logs
 
 `%LOCALAPPDATA%\Looppaper\logs\looppaper.log` (rolls over at 1 MB, one previous file kept as `looppaper.log.1`).
+
+## Releases & updates
+
+### Cutting a release
+
+Releases are built by `.github/workflows/release.yml` when a version tag is pushed:
+
+```powershell
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+The workflow builds, tests and publishes the self-contained exe with the tag's version stamped in
+(`-p:Version=0.2.0`; `Directory.Build.props` only holds the default for local builds), packs
+`Looppaper-0.2.0-win-x64.zip` (exe, `install.ps1`, `uninstall.ps1`, README and any license / notice
+files) and `Looppaper-0.2.0-win-x64.zip.sha256`, and creates a GitHub Release with both attached and
+generated release notes. A tag with a suffix such as `v0.3.0-beta.1` becomes a pre-release. Running the
+workflow by hand from the Actions tab is a dry run: it uploads the zip as a workflow artifact and
+creates no release. To pack locally: `dotnet publish src/Looppaper -p:PublishProfile=win-x64 -p:Version=0.2.0`,
+then `powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 0.2.0` (writes to `artifacts\`).
+
+Check a download with `Get-FileHash Looppaper-0.2.0-win-x64.zip` against the `.sha256` file.
 
 ## Build
 

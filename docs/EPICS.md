@@ -97,10 +97,11 @@ asking first.
 - [ ] 9.5 Tests and README.
 ## Epic 6 — Distribution
 
-- [ ] GitHub releases
-- [ ] winget manifest
-- [ ] Code signing
-- [ ] Update check
+- [x] 6.1 Release workflow: pushing a tag `vX.Y.Z` builds, tests and publishes with the tag's version, packs
+      `Looppaper-X.Y.Z-win-x64.zip` + `.sha256` and creates a GitHub Release (`.github/workflows/release.yml`).
+- [ ] 6.2 winget manifest template + fill script (`packaging/winget/`).
+- [ ] 6.3 Optional code signing in the release workflow.
+- [ ] 6.4 Opt-in update check (`checkForUpdates`, `--check-update`).
 
 ## Epic 7 — Optional control surface
 
