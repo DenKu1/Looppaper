@@ -83,6 +83,32 @@ public sealed class CompressionStore
         e.KeepOriginal = false;
     });
 
+    /// <summary>A file was moved from <paramref name="from"/> to <paramref name="to"/>: records about it (as a video or as a compressed copy) follow it.</summary>
+    public void Rename(string from, string to)
+    {
+        var store = Load();
+        var changed = false;
+        foreach (var entry in store.Entries)
+        {
+            if (string.Equals(entry.Path, from, StringComparison.OrdinalIgnoreCase))
+            {
+                entry.Path = to;
+                changed = true;
+            }
+
+            if (string.Equals(entry.Compressed, from, StringComparison.OrdinalIgnoreCase))
+            {
+                entry.Compressed = to;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            Save(store);
+        }
+    }
+
     private static Entry? Find(StoreFile store, VideoFileKey key) =>
         store.Entries.FirstOrDefault(e => e.ToKey().Matches(key));
 

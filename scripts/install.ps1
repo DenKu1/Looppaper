@@ -9,15 +9,16 @@
 
     Standard (default): the usual Windows folders:
         config in %APPDATA%\Looppaper, cache and logs in %LOCALAPPDATA%\Looppaper,
-        collection in %USERPROFILE%\Pictures\Looppaper.
+        pictures in %USERPROFILE%\Pictures\Looppaper, videos in %USERPROFILE%\Videos\Looppaper.
 
     Portable: everything lives in the install folder:
         Looppaper.exe, config.json, collection\ (your pictures and videos), cache\, logs\
-    On its first start Looppaper copies settings, cached videos and the pictures/videos of the
-    Pictures\Looppaper folder from the standard folders (the originals are kept).
+    On its first start Looppaper copies settings, cached videos, the pictures/videos of the
+    Pictures\Looppaper folder and the videos of Videos\Looppaper from the standard folders
+    (the originals are kept).
 
     Without -TrayIcon it also asks whether to show the Looppaper icon in the notification area
-    (a menu to switch pictures, pause, open the folders and stop Looppaper); the default is yes.
+    (a menu to switch wallpapers, pause, open the folders and stop Looppaper); the default is yes.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\install.ps1
@@ -97,19 +98,27 @@ Write-Host "Installed to $exe"
 if ($Layout -eq 'Portable') {
     New-Item -ItemType File -Force -Path $marker | Out-Null
     $collection = Join-Path $InstallDir 'collection'
+    $videos = $collection
     $settings = Join-Path $InstallDir 'config.json'
     $logs = Join-Path $InstallDir 'logs\looppaper.log'
     Write-Host "Layout: portable - settings, collection, cache and logs all live in $InstallDir"
 } else {
     Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
     $collection = Join-Path $env:USERPROFILE 'Pictures\Looppaper'
+    $videos = Join-Path $env:USERPROFILE 'Videos\Looppaper'
     $settings = Join-Path $env:APPDATA 'Looppaper\config.json'
     $logs = Join-Path $env:LOCALAPPDATA 'Looppaper\logs\looppaper.log'
     Write-Host 'Layout: standard - settings in %APPDATA%\Looppaper, cache and logs in %LOCALAPPDATA%\Looppaper'
 }
 
 New-Item -ItemType Directory -Force -Path $collection | Out-Null
-Write-Host "Collection folder: $collection (put .jpg/.jpeg/.png pictures or .mp4 videos here)"
+New-Item -ItemType Directory -Force -Path $videos | Out-Null
+if ($videos -eq $collection) {
+    Write-Host "Collection folder: $collection (put .jpg/.jpeg/.png pictures or .mp4 videos here)"
+} else {
+    Write-Host "Collection folder: $collection (put .jpg/.jpeg/.png pictures here)"
+    Write-Host "Video folder: $videos (put .mp4 videos here; Wallpaper Engine wallpapers are saved here too)"
+}
 
 $p = Start-Process -FilePath $exe -ArgumentList '--tray-icon', $TrayIcon.ToLowerInvariant() -Wait -PassThru -WindowStyle Hidden
 if ($p.ExitCode -ne 0) {

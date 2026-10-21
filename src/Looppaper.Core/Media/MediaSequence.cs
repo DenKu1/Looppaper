@@ -91,6 +91,24 @@ public sealed class MediaSequence
     }
 
     /// <summary>
+    /// Makes <paramref name="item"/> current, as if <see cref="Next"/> had returned it (e.g. the configured video to
+    /// start with). In list order the sequence continues after it; shuffled, a fresh pass starts that avoids it first.
+    /// </summary>
+    public void JumpTo(string item)
+    {
+        _forward.Clear();
+        Record(item);
+        if (Shuffle)
+        {
+            Reshuffle();
+            return;
+        }
+
+        var index = _order.FindIndex(i => string.Equals(i, item, StringComparison.OrdinalIgnoreCase));
+        _position = index >= 0 ? index + 1 : FirstAfter(item);
+    }
+
+    /// <summary>
     /// Steps back to the item returned before <see cref="Current"/>. Null when there is none: an empty or one-item
     /// list, nothing returned yet, or a shuffled sequence back at the oldest item it remembers. In list order it keeps
     /// going back past the start of the history.

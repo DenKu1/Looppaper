@@ -83,7 +83,7 @@ internal static class Program
         }
 
         log.Info($"Looppaper {typeof(Program).Assembly.GetName().Version} starting on {Environment.OSVersion.VersionString}; {layout} layout; config {configPath}; overrides {options}");
-        log.Info($"Collection {config.ResolveCollectionFolder()}, mode {config.Mode}, interval {config.IntervalSeconds}s, scaling {config.Scaling}");
+        log.Info($"Collection {config.ResolveCollectionFolder()}, videos {config.ResolveVideoFolder()}, mode {config.Mode}, interval {config.IntervalSeconds}s, scaling {config.Scaling}");
 
         // Started from a terminal: run the wallpaper as a background copy so the terminal is free again.
         if (!options.Background && ConsoleOutput.HasConsole && !ConsoleOutput.OwnsConsole)

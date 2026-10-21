@@ -75,6 +75,9 @@ public static class AppPaths
     {
         public const string CollectionFolder = @"%USERPROFILE%\Pictures\Looppaper";
 
+        /// <summary>Where videos (and Wallpaper Engine recordings) go in the standard layout.</summary>
+        public const string VideoFolder = @"%USERPROFILE%\Videos\Looppaper";
+
         public static string ConfigDirectory =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppName);
 

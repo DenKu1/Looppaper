@@ -279,6 +279,13 @@ public static class ConfigLoader
                     }
 
                     break;
+                case "folder":
+                    if (ReadString(value, path, log, allowNull: false, out var videoFolder))
+                    {
+                        video.Folder = videoFolder!;
+                    }
+
+                    break;
                 case "volume":
                     if (ReadInt(value, path, log, out var volume))
                     {

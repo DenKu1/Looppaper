@@ -268,9 +268,20 @@ internal sealed class PictureController
             return IntPtr.Zero; // background already showing
         }
 
-        _log.Info(tried == 0 ? "No pictures to show; showing the background color" : "No picture could be decoded; showing the background color");
+        _log.Info(tried == 0 ? "No pictures to show; showing the default wallpaper" : "No picture could be decoded; showing the default wallpaper");
         _shownPath = null;
-        return PictureRenderer.Render(null, width, height, monitors, _config.Scaling, background, _log);
+        var fallback = PictureRenderer.RenderDefault(width, height, monitors, DefaultWallpaperHint(), _log);
+        return fallback != IntPtr.Zero ? fallback : PictureRenderer.Render(null, width, height, monitors, _config.Scaling, background, _log);
+    }
+
+    /// <summary>The lines under the name on the default wallpaper: where pictures and videos go.</summary>
+    private List<string> DefaultWallpaperHint()
+    {
+        var pictures = _config.ResolveCollectionFolder();
+        var videos = _config.ResolveVideoFolder();
+        return string.Equals(pictures, videos, StringComparison.OrdinalIgnoreCase)
+            ? [$"Put .jpg / .png pictures or .mp4 videos in {pictures}"]
+            : [$"Put .jpg / .png pictures in {pictures}", $"and .mp4 videos in {videos}"];
     }
 
     /// <summary>Lazily yields the next (or previous) pictures in slideshow order, at most one full pass.</summary>

@@ -35,6 +35,16 @@ public class ConfigEditorTests
     }
 
     [Fact]
+    public void SetVideoFileLeavesEnabledAlone()
+    {
+        var text = ConfigEditor.SetVideoInText("""{ "video": { "enabled": false } }""", @"D:\Clips\a.mp4", enable: false);
+        var config = ConfigLoader.Parse(text, new MemoryLog());
+
+        Assert.False(config.Video.Enabled);
+        Assert.Equal(@"D:\Clips\a.mp4", config.Video.File);
+    }
+
+    [Fact]
     public void SetVideoAddsTheVideoSectionWhenMissingOrWrong()
     {
         var added = ConfigLoader.Parse(ConfigEditor.SetVideoInText("""{ "shuffle": true }""", "a.mp4"), new MemoryLog());

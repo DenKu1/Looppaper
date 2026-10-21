@@ -28,6 +28,10 @@ public static class ConfigEditor
     /// <returns>Null on success, otherwise why the file was not changed.</returns>
     public static string? SetVideo(string configPath, string videoFile) => Edit(configPath, text => SetVideoInText(text, videoFile));
 
+    /// <summary>Sets only <c>video.file</c> (after the file was moved), leaving <c>video.enabled</c> as it is.</summary>
+    /// <returns>Null on success, otherwise why the file was not changed.</returns>
+    public static string? SetVideoFile(string configPath, string videoFile) => Edit(configPath, text => SetVideoInText(text, videoFile, enable: false));
+
     /// <summary>Sets <c>trayIcon</c>.</summary>
     /// <returns>Null on success, otherwise why the file was not changed.</returns>
     public static string? SetTrayIcon(string configPath, bool show) => Edit(configPath, text => SetTrayIconInText(text, show));
@@ -84,7 +88,7 @@ public static class ConfigEditor
     }
 
     /// <summary>The config text with the video set; throws <see cref="JsonException"/> for invalid JSON.</summary>
-    public static string SetVideoInText(string configText, string videoFile)
+    public static string SetVideoInText(string configText, string videoFile, bool enable = true)
     {
         var root = ParseRoot(configText);
         var videoKey = FindKey(root, "video") ?? "video";
@@ -94,7 +98,11 @@ public static class ConfigEditor
             root[videoKey] = video;
         }
 
-        video[FindKey(video, "enabled") ?? "enabled"] = true;
+        if (enable)
+        {
+            video[FindKey(video, "enabled") ?? "enabled"] = true;
+        }
+
         video[FindKey(video, "file") ?? "file"] = videoFile;
         return Write(root);
     }

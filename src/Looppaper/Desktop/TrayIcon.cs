@@ -16,6 +16,7 @@ internal enum TrayAction
     Pause,
     Resume,
     OpenCollection,
+    OpenVideos,
     EditConfig,
     OpenLog,
     Stop,
@@ -80,7 +81,7 @@ internal sealed unsafe class TrayIcon : IDisposable
     }
 
     /// <summary>Shows the menu at the mouse and returns what was picked (runs a modal loop; timers keep firing).</summary>
-    public TrayAction ShowMenu(ControlReply state)
+    public TrayAction ShowMenu(ControlReply state, bool videoFolder)
     {
         var menu = User32.CreatePopupMenu();
         if (menu == IntPtr.Zero)
@@ -94,11 +95,16 @@ internal sealed unsafe class TrayIcon : IDisposable
             var pausedByUser = state.State.HasFlag(ControlState.PausedByUser);
             User32.AppendMenu(menu, User32.MF_GRAYED, 0, Shorten(state.Describe(), 80));
             User32.AppendMenu(menu, User32.MF_SEPARATOR, 0, null);
-            User32.AppendMenu(menu, slideshow, (nuint)TrayAction.Next, "&Next picture");
-            User32.AppendMenu(menu, slideshow, (nuint)TrayAction.Previous, "P&revious picture");
+            User32.AppendMenu(menu, slideshow, (nuint)TrayAction.Next, "&Next wallpaper");
+            User32.AppendMenu(menu, slideshow, (nuint)TrayAction.Previous, "P&revious wallpaper");
             User32.AppendMenu(menu, User32.MF_STRING, (nuint)(pausedByUser ? TrayAction.Resume : TrayAction.Pause), pausedByUser ? "&Resume" : "&Pause");
             User32.AppendMenu(menu, User32.MF_SEPARATOR, 0, null);
             User32.AppendMenu(menu, User32.MF_STRING, (nuint)TrayAction.OpenCollection, "Open the &collection folder");
+            if (videoFolder)
+            {
+                User32.AppendMenu(menu, User32.MF_STRING, (nuint)TrayAction.OpenVideos, "Open the &videos folder");
+            }
+
             User32.AppendMenu(menu, User32.MF_STRING, (nuint)TrayAction.EditConfig, "&Edit config.json");
             User32.AppendMenu(menu, User32.MF_STRING, (nuint)TrayAction.OpenLog, "Open the &log");
             User32.AppendMenu(menu, User32.MF_SEPARATOR, 0, null);

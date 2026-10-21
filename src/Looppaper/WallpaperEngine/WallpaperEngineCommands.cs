@@ -37,7 +37,13 @@ internal sealed class WallpaperEngineCommands
             return 1;
         }
 
-        var items = WorkshopLibrary.Scan(location.WorkshopFolders, AppPaths.CacheDirectory, _log);
+        // Recordings from before video.folder are still found in the cache; they are moved to the video folder here.
+        var items = WorkshopLibrary.Scan(location.WorkshopFolders, VideoFolders, _log);
+        if (MoveLegacyRecordings(items) > 0)
+        {
+            items = WorkshopLibrary.Scan(location.WorkshopFolders, VideoFolders, _log);
+        }
+
         _log.Info($"Wallpaper Engine: {items.Count} Workshop items in {string.Join("; ", location.WorkshopFolders)}; install {location.InstallFolder ?? "not found"}");
 
         if (_options.WeList)
@@ -92,6 +98,137 @@ internal sealed class WallpaperEngineCommands
         }
 
         return Use(item, location);
+    }
+
+    /// <summary>Where videos made from Workshop items are looked for: the video folder, then the old cache folder.</summary>
+    private IReadOnlyList<string> VideoFolders => [_config.ResolveVideoFolder(), AppPaths.CacheDirectory];
+
+    /// <summary>
+    /// Moves recordings in the old naming (<c>we-&lt;id&gt;-&lt;time&gt;.mp4</c> in the cache) to the video folder with a
+    /// readable name, so they stay in the collection. <c>video.file</c> and the compression records follow them.
+    /// Returns how many were moved.
+    /// </summary>
+    private int MoveLegacyRecordings(IReadOnlyList<WorkshopItem> items)
+    {
+        var legacy = ConversionCache.Legacy(AppPaths.CacheDirectory);
+        if (legacy.Count == 0)
+        {
+            return 0;
+        }
+
+        var folder = _config.ResolveVideoFolder();
+        var configured = _config.ResolveVideo();
+        var moved = 0;
+        foreach (var from in legacy)
+        {
+            var tag = ConversionCache.TagOf(from)!;
+            var item = items.FirstOrDefault(i => string.Equals(ConversionCache.Tag(i.Id, i.ModifiedUtc), tag, StringComparison.OrdinalIgnoreCase));
+            var to = Path.Combine(folder, ConversionCache.FileName(item?.Title ?? string.Empty, tag));
+            if (!MoveVideo(from, to))
+            {
+                continue;
+            }
+
+            moved++;
+            ConsoleOutput.WriteLine($"Moved {Path.GetFileName(from)} to the video folder: {to}");
+            if (string.Equals(configured, from, StringComparison.OrdinalIgnoreCase))
+            {
+                _config.Video.File = to;
+                if (ConfigEditor.SetVideoFile(_configPath, to) is { } error)
+                {
+                    _log.Warn($"Pointing video.file at {to} failed: {error}");
+                }
+            }
+        }
+
+        return moved;
+    }
+
+    /// <summary>Moves a video (keeping its write time, so compression records still match) and moves its records along.</summary>
+    private bool MoveVideo(string from, string to)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            if (File.Exists(to))
+            {
+                // Same recording already there (an earlier move was interrupted): keep that one.
+                File.Delete(from);
+            }
+            else
+            {
+                File.Move(from, to);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log.Warn($"Moving {from} to {to} failed: {ex.Message}");
+            return false;
+        }
+
+        new CompressionStore(AppPaths.CompressionStateFile, _log).Rename(from, to);
+        _log.Info($"Moved {from} to {to}");
+        return true;
+    }
+
+    /// <summary>
+    /// Moves the compressed copy of a video item to the video folder, or copies the original there when it plays as it
+    /// is. The copy is recorded as compact, so the wallpaper does not compress it again. Returns the copy, or the
+    /// original when saving failed.
+    /// </summary>
+    private string SaveToVideoFolder(WorkshopItem item, string playable)
+    {
+        var original = item.FilePath!;
+        var target = ConversionCache.PathFor(_config.ResolveVideoFolder(), item.Title, item.Id, item.ModifiedUtc);
+        var store = new CompressionStore(AppPaths.CompressionStateFile, _log);
+        var originalKey = VideoFileKey.TryFromFile(original);
+        var compact = !string.Equals(playable, original, StringComparison.OrdinalIgnoreCase)
+            || (originalKey is not null && store.IsKeptAsIs(originalKey));
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            if (compact && !string.Equals(playable, original, StringComparison.OrdinalIgnoreCase))
+            {
+                File.Move(playable, target, overwrite: true);
+                store.Rename(playable, target);
+            }
+            else
+            {
+                File.Copy(original, target, overwrite: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log.Warn($"Saving Workshop item {item.Id} to {target} failed: {ex.Message}");
+            ConsoleOutput.WriteLine($"Could not save it in the video folder ({ex.Message}); using it from the Workshop folder.");
+            return original;
+        }
+
+        if (compact && VideoFileKey.TryFromFile(target) is { } targetKey)
+        {
+            store.RecordKeepOriginal(targetKey);
+        }
+
+        DeleteStale(item);
+        _log.Info($"Workshop item {item.Id} saved as {target}");
+        ConsoleOutput.WriteLine($"Saved in the video folder: {target}");
+        return target;
+    }
+
+    /// <summary>Deletes the videos made from older versions of the item.</summary>
+    private void DeleteStale(WorkshopItem item)
+    {
+        foreach (var stale in ConversionCache.Stale(VideoFolders, item.Id, item.ModifiedUtc))
+        {
+            try
+            {
+                File.Delete(stale);
+                _log.Info($"Deleted {stale}, made from an older version of Workshop item {item.Id}");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
     }
 
     private static int List(IReadOnlyList<WorkshopItem> items, WallpaperEngineLocation location)
@@ -151,12 +288,18 @@ internal sealed class WallpaperEngineCommands
     }
 
     /// <summary>
-    /// A video item: compressed here, with progress, unless it already has a compressed copy (or
-    /// <c>video.compress</c> is off). config.json gets the original path either way; the wallpaper plays the
-    /// recorded compressed copy in its place. Null only when the file is gone or the person cancelled.
+    /// A video item: compressed here, with progress (unless <c>video.compress</c> is off), and saved in the video
+    /// folder with a readable name, so it stays in the collection. Returns that copy; null only when the file is
+    /// gone or the person cancelled.
     /// </summary>
     private string? ResolveVideo(WorkshopItem item)
     {
+        if (item.ConvertedFile is { } existing)
+        {
+            ConsoleOutput.WriteLine($"Already in the video folder: {existing}");
+            return existing;
+        }
+
         using var cancel = new CancellationTokenSource();
         ConsoleCancelEventHandler onCancel = (_, e) =>
         {
@@ -173,12 +316,7 @@ internal sealed class WallpaperEngineCommands
                 return null;
             }
 
-            if (!string.Equals(playable, item.FilePath, StringComparison.OrdinalIgnoreCase))
-            {
-                ConsoleOutput.WriteLine($"Looppaper will play the compressed copy: {playable}");
-            }
-
-            return item.FilePath;
+            return SaveToVideoFolder(item, playable);
         }
         catch (OperationCanceledException)
         {
@@ -219,7 +357,7 @@ internal sealed class WallpaperEngineCommands
     }
 
     /// <summary>
-    /// Records a scene / web item to a looping .mp4 in the cache (asking first when <paramref name="ask"/>);
+    /// Records a scene / web item to a looping .mp4 in the video folder (asking first when <paramref name="ask"/>);
     /// returns its path, or null after explaining what went wrong.
     /// </summary>
     private string? Convert(WorkshopItem item, WallpaperEngineLocation location, bool ask)
@@ -270,7 +408,7 @@ internal sealed class WallpaperEngineCommands
             }
         }
 
-        var output = ConversionCache.PathFor(AppPaths.CacheDirectory, item.Id, item.ModifiedUtc);
+        var output = ConversionCache.PathFor(_config.ResolveVideoFolder(), item.Title, item.Id, item.ModifiedUtc);
         using var cancel = new CancellationTokenSource();
         ConsoleCancelEventHandler onCancel = (_, e) =>
         {
@@ -298,17 +436,7 @@ internal sealed class WallpaperEngineCommands
             Console.CancelKeyPress -= onCancel;
         }
 
-        foreach (var stale in ConversionCache.Stale(AppPaths.CacheDirectory, item.Id, item.ModifiedUtc))
-        {
-            try
-            {
-                File.Delete(stale);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-            }
-        }
-
+        DeleteStale(item);
         ConsoleOutput.WriteLine($"Converted: {output} ({WorkshopLibrary.SizeText(new FileInfo(output).Length)})");
         return output;
     }

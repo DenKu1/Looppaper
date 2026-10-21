@@ -28,6 +28,27 @@ public class MediaSequenceTests
     }
 
     [Fact]
+    public void JumpToStartsFromThatItem()
+    {
+        var ordered = new MediaSequence(shuffle: false);
+        ordered.Update(["a", "b", "c"]);
+
+        ordered.JumpTo("b");
+
+        Assert.Equal("b", ordered.Current);
+        Assert.Equal(["c", "a", "b"], Enumerable.Range(0, 3).Select(_ => ordered.Next()!));
+        Assert.Equal("a", ordered.Previous());
+
+        var shuffled = new MediaSequence(shuffle: true, new Random(3));
+        shuffled.Update(["a", "b", "c", "d"]);
+        shuffled.JumpTo("c");
+
+        var pass = Enumerable.Range(0, 4).Select(_ => shuffled.Next()!).ToList();
+        Assert.NotEqual("c", pass[0]);
+        Assert.Equal(["a", "b", "c", "d"], pass.Order());
+    }
+
+    [Fact]
     public void OrderedUpdateContinuesAfterCurrent()
     {
         var sequence = new MediaSequence(shuffle: false);

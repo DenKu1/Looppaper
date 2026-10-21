@@ -5,20 +5,21 @@ using Looppaper.Core.Media;
 namespace Looppaper.Core.Configuration;
 
 /// <summary>The old (standard layout) locations a portable install can import from.</summary>
-public sealed record StandardLocations(string ConfigFile, string CacheDirectory, string CompressionStateFile, string CollectionFolder)
+public sealed record StandardLocations(string ConfigFile, string CacheDirectory, string CompressionStateFile, string CollectionFolder, string? VideoFolder = null)
 {
     public static StandardLocations Current() => new(
         AppPaths.Standard.ConfigFile,
         AppPaths.Standard.CacheDirectory,
         AppPaths.Standard.CompressionStateFile,
-        AppPaths.ExpandPath(AppPaths.Standard.CollectionFolder));
+        AppPaths.ExpandPath(AppPaths.Standard.CollectionFolder),
+        AppPaths.ExpandPath(AppPaths.Standard.VideoFolder));
 }
 
 /// <summary>
-/// First run of the portable layout: copies the config, the cache, the compression records and the
-/// pictures/videos of the old default collection folder into the install folder, and points paths
-/// that referred to the old locations at the copies. Nothing is moved or deleted, so the old
-/// locations stay usable. Runs only when the install folder has no config.json yet.
+/// First run of the portable layout: copies the config, the cache, the compression records, the
+/// pictures/videos of the old default collection folder and the videos of the old default video folder into the
+/// install folder, and points paths that referred to the old locations at the copies. Nothing is moved or
+/// deleted, so the old locations stay usable. Runs only when the install folder has no config.json yet.
 /// </summary>
 public static class PortableMigration
 {
@@ -46,6 +47,21 @@ public static class PortableMigration
             if (copied > 0)
             {
                 done.Add($"Copied {copied} picture(s)/video(s) from {old.CollectionFolder} to {newCollection}");
+            }
+        }
+
+        if (IsDefaultVideoFolder(config.Video.Folder, old))
+        {
+            // The old default video folder (or none, in a config from before video.folder): videos go into the collection.
+            config.Video.Folder = AppPaths.PortableCollectionFolder;
+            if (old.VideoFolder is not null)
+            {
+                var copied = CopyFiles(old.VideoFolder, newCollection, log, name => MediaScanner.IsSupported(name, MediaKind.Video));
+                renames.Add((Normalize(old.VideoFolder), newCollection));
+                if (copied > 0)
+                {
+                    done.Add($"Copied {copied} video(s) from {old.VideoFolder} to {newCollection}");
+                }
             }
         }
 
@@ -89,6 +105,24 @@ public static class PortableMigration
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
         {
             return old.CollectionFolder;
+        }
+    }
+
+    private static bool IsDefaultVideoFolder(string folder, StandardLocations old)
+    {
+        if (string.Equals(folder, AppPaths.PortableCollectionFolder, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(folder, AppPaths.Standard.VideoFolder, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        try
+        {
+            return old.VideoFolder is not null && SamePath(AppPaths.ExpandPath(folder), old.VideoFolder);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+        {
+            return false;
         }
     }
 

@@ -14,7 +14,7 @@ public enum WorkshopItemStatus
     /// <summary>A scene or web wallpaper that has not been recorded to a video yet.</summary>
     NeedsConversion,
 
-    /// <summary>A scene or web wallpaper with an up-to-date recording in the cache.</summary>
+    /// <summary>A scene or web wallpaper with an up-to-date recording in the video folder.</summary>
     Converted,
 
     /// <summary>Application wallpapers, non-<c>.mp4</c> videos, unknown types and broken items.</summary>
@@ -27,7 +27,7 @@ public enum WorkshopItemStatus
 /// <param name="FilePath">Full path of the main file (video, scene.json, index.html...), or null.</param>
 /// <param name="SizeBytes">The video file's size for videos, otherwise the size of the whole folder.</param>
 /// <param name="ModifiedUtc">Newest write time of the item's files; part of the conversion cache key.</param>
-/// <param name="ConvertedFile">The cached recording of a scene / web item, when there is one.</param>
+/// <param name="ConvertedFile">The recording of a scene / web item, or the copy of a video item, in the video folder (when there is one).</param>
 /// <param name="Note">Why an item is unsupported, or null.</param>
 public sealed record WorkshopItem(
     int Number,
@@ -60,7 +60,7 @@ public sealed record WorkshopItem(
 /// </summary>
 public static class WorkshopLibrary
 {
-    public static IReadOnlyList<WorkshopItem> Scan(IEnumerable<string> workshopFolders, string cacheDirectory, ILog log)
+    public static IReadOnlyList<WorkshopItem> Scan(IEnumerable<string> workshopFolders, IReadOnlyList<string> videoFolders, ILog log)
     {
         var items = new List<WorkshopItem>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -97,7 +97,7 @@ public static class WorkshopLibrary
                     continue;
                 }
 
-                items.Add(Describe(id, folder, project, cacheDirectory));
+                items.Add(Describe(id, folder, project, videoFolders));
             }
         }
 
@@ -110,7 +110,7 @@ public static class WorkshopLibrary
     }
 
     /// <summary>Builds the item for one folder; public for tests.</summary>
-    public static WorkshopItem Describe(string id, string folder, ProjectInfo project, string cacheDirectory)
+    public static WorkshopItem Describe(string id, string folder, ProjectInfo project, IReadOnlyList<string> videoFolders)
     {
         var title = project.Title ?? id;
         var type = project.Type;
@@ -132,13 +132,13 @@ public static class WorkshopLibrary
                     return new(0, id, folder, title, type, file, size, modified, WorkshopItemStatus.Unsupported, null, $"{Path.GetExtension(file)} video; only .mp4 is supported");
                 }
 
-                return new(0, id, folder, title, type, file, size, modified, WorkshopItemStatus.Ready, null, null);
+                return new(0, id, folder, title, type, file, size, modified, WorkshopItemStatus.Ready, ConversionCache.Find(videoFolders, id, modified), null);
             }
 
             case WorkshopItemType.Scene:
             case WorkshopItemType.Web:
             {
-                var converted = ConversionCache.Find(cacheDirectory, id, modified);
+                var converted = ConversionCache.Find(videoFolders, id, modified);
                 var status = converted is null ? WorkshopItemStatus.NeedsConversion : WorkshopItemStatus.Converted;
                 return new(0, id, folder, title, type, file, FolderSize(folder), modified, status, converted, null);
             }

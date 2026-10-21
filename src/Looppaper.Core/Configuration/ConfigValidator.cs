@@ -30,6 +30,12 @@ public static class ConfigValidator
         config.Video ??= new VideoConfig();
         config.Pause ??= new PauseConfig();
         config.WallpaperEngine ??= new WallpaperEngineConfig();
+        if (string.IsNullOrWhiteSpace(config.Video.Folder))
+        {
+            log.Warn($"Config: 'video.folder' is empty; using {LooppaperConfig.DefaultVideoFolder}");
+            config.Video.Folder = LooppaperConfig.DefaultVideoFolder;
+        }
+
         config.Video.Volume = Clamp(config.Video.Volume, 0, 100, "video.volume", log);
     }
 

@@ -61,6 +61,46 @@ public class ConfigModelTests
     }
 
     [Fact]
+    public void ResolveVideo_FileNameIsLookedUpInTheVideoFolderFirst()
+    {
+        using var pictures = new TempDir();
+        using var videos = new TempDir();
+        var config = new LooppaperConfig { CollectionFolder = pictures.Path };
+        config.Video.Folder = videos.Path;
+        config.Video.File = "waves.mp4";
+
+        Assert.Equal(Path.Combine(pictures.Path, "waves.mp4"), config.ResolveVideo()); // in neither: the collection, as before
+
+        var inVideos = videos.File("waves.mp4");
+
+        Assert.Equal(inVideos, config.ResolveVideo());
+        Assert.Equal([videos.Path, pictures.Path], config.ResolveVideoFolders());
+    }
+
+    [Fact]
+    public void ResolveVideoFolders_SameFolderOnce()
+    {
+        using var dir = new TempDir();
+        var config = new LooppaperConfig { CollectionFolder = dir.Path + Path.DirectorySeparatorChar };
+        config.Video.Folder = dir.Path;
+
+        Assert.Single(config.ResolveVideoFolders());
+    }
+
+    [Fact]
+    public void VideoFolder_IsParsedAndAnEmptyOneFallsBackToTheDefault()
+    {
+        var log = new MemoryLog();
+        Assert.Equal(@"D:\Clips", ConfigLoader.Parse("""{ "video": { "folder": "D:\\Clips" } }""", log).Video.Folder);
+        Assert.Empty(log.Warnings);
+        Assert.Contains("\"folder\"", ConfigLoader.Serialize(new LooppaperConfig()), StringComparison.Ordinal);
+
+        var empty = ConfigLoader.Parse("""{ "video": { "folder": " " } }""", log);
+        ConfigValidator.Normalize(empty, log);
+        Assert.Equal(LooppaperConfig.DefaultVideoFolder, empty.Video.Folder);
+    }
+
+    [Fact]
     public void ResolveCollectionFolder_ExpandsEnvironmentVariables()
     {
         Environment.SetEnvironmentVariable("LOOPPAPER_TEST_ROOT", Path.GetTempPath());

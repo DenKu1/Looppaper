@@ -26,6 +26,8 @@ public sealed class LayoutTests : IDisposable
         Assert.Equal(Path.Combine(dir.Path, "compression.json"), AppPaths.CompressionStateFile);
         Assert.Equal("collection", new LooppaperConfig().CollectionFolder);
         Assert.Equal(Path.Combine(dir.Path, "collection"), new LooppaperConfig().ResolveCollectionFolder());
+        Assert.Equal("collection", new LooppaperConfig().Video.Folder);
+        Assert.Single(new LooppaperConfig().ResolveVideoFolders());
     }
 
     [Fact]
@@ -37,6 +39,7 @@ public sealed class LayoutTests : IDisposable
         Assert.Equal(AppPaths.Standard.ConfigFile, AppPaths.DefaultConfigFile);
         Assert.Equal(AppPaths.Standard.CacheDirectory, AppPaths.CacheDirectory);
         Assert.Equal(AppPaths.Standard.CollectionFolder, new LooppaperConfig().CollectionFolder);
+        Assert.Equal(@"%USERPROFILE%\Videos\Looppaper", new LooppaperConfig().Video.Folder);
         Assert.Null(AppPaths.PortableRoot);
     }
 
@@ -124,6 +127,31 @@ public sealed class PortableMigrationTests
 
         Assert.Empty(PortableMigration.Run(install.Path, locations, new MemoryLog()));
         Assert.Equal("{}", File.ReadAllText(Path.Combine(install.Path, "config.json")));
+    }
+
+    [Fact]
+    public void VideosOfTheDefaultVideoFolderComeIntoTheCollection()
+    {
+        using var oldDir = new TempDir();
+        using var install = new TempDir();
+        var oldVideos = Path.Combine(oldDir.Path, "Videos", "Looppaper");
+        Directory.CreateDirectory(oldVideos);
+        var clip = Path.Combine(oldVideos, "Rain (we-5-20250102T030405).mp4");
+        File.WriteAllText(clip, "video");
+        File.WriteAllText(Path.Combine(oldVideos, "notes.txt"), "not a video");
+        var oldConfig = Path.Combine(oldDir.Path, "config.json");
+        ConfigLoader.TrySave(oldConfig, new LooppaperConfig { CollectionFolder = Path.Combine(oldDir.Path, "Elsewhere"), Video = { File = clip } }, new MemoryLog());
+        var locations = new StandardLocations(oldConfig, Path.Combine(oldDir.Path, "cache"), Path.Combine(oldDir.Path, "c.json"), Path.Combine(oldDir.Path, "Pictures"), oldVideos);
+
+        var done = PortableMigration.Run(install.Path, locations, new MemoryLog());
+
+        Assert.Contains(done, line => line.StartsWith("Copied 1 video(s)", StringComparison.Ordinal));
+        var migrated = ConfigLoader.Parse(File.ReadAllText(Path.Combine(install.Path, "config.json")), new MemoryLog());
+        Assert.Equal("collection", migrated.Video.Folder);
+        Assert.Equal(Path.Combine(install.Path, "collection", "Rain (we-5-20250102T030405).mp4"), migrated.Video.File);
+        Assert.True(File.Exists(migrated.Video.File));
+        Assert.False(File.Exists(Path.Combine(install.Path, "collection", "notes.txt")));
+        Assert.True(File.Exists(clip));
     }
 
     [Fact]

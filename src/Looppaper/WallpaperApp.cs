@@ -55,6 +55,17 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     /// <summary>Copying a batch of pictures takes a while; look at the collection once it is quiet.</summary>
     private const uint CollectionSettleMs = 2000;
 
+    /// <summary>Switches to the next video every <c>intervalSeconds</c> (slideshow mode, more than one video).</summary>
+    private const nuint VideoTimerId = 15;
+
+    /// <summary>Starts a video again (or the next one) shortly after playback failed.</summary>
+    private const nuint VideoRetryTimerId = 16;
+
+    private const uint VideoRetryDelayMs = 1000;
+
+    /// <summary>A video that failed after playing this long worked before (e.g. the GPU ran out of memory); start it again.</summary>
+    private const long VideoRestartAfterMs = 60_000;
+
     private readonly string _configPath;
     private readonly Func<LooppaperConfig?> _reloadConfig;
     private readonly ILog _log;
@@ -66,6 +77,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     private TrayIcon? _tray;
     private FileChangeWatcher? _configWatcher;
     private FileChangeWatcher? _collectionWatcher;
+    private FileChangeWatcher? _videoWatcher;
     private WallpaperWindow? _window;
     private DesktopHost? _host;
     private PictureController? _pictures;
@@ -74,6 +86,23 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     private readonly CancellationTokenSource _cancel = new();
     private Task? _compression;
     private volatile string? _compressedPath;
+
+    /// <summary>The original video the compression worker is busy with (its compressed copy may play instead).</summary>
+    private volatile string? _compressing;
+
+    private readonly MediaScanner _videoScanner;
+
+    /// <summary>The order videos take turns in; rebuilt when the config changes.</summary>
+    private MediaSequence? _videoOrder;
+
+    /// <summary>The video (the original, not its compressed copy) that is or was last shown; kept across rebuilds.</summary>
+    private string? _currentVideo;
+
+    /// <summary>Videos that could not be started or failed right away; skipped until the folders change.</summary>
+    private readonly HashSet<string> _brokenVideos = new(StringComparer.OrdinalIgnoreCase);
+
+    private long _videoStartedAt;
+    private string? _warnedConfiguredVideo;
 
     /// <summary>Virtual screen and monitors the current window and content were built for.</summary>
     private string? _displayLayout;
@@ -87,6 +116,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         _configPath = configPath;
         _reloadConfig = reloadConfig;
         _log = log;
+        _videoScanner = new MediaScanner(log);
         _backgroundBrush = Gdi32.CreateSolidBrush(config.ResolveBackgroundColor().ToColorRef());
     }
 
@@ -219,6 +249,22 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
                 User32.KillTimer(_control!.Handle, CollectionTimerId);
                 OnCollectionChanged();
                 return true;
+            case User32.WM_TIMER when (nuint)wParam == VideoTimerId:
+                if (!_pause.IsPausedEverywhere(Monitors.RelativeToVirtualScreen().ToList()))
+                {
+                    StepVideo(backwards: false);
+                }
+
+                return true;
+            case User32.WM_TIMER when (nuint)wParam == VideoRetryTimerId:
+                User32.KillTimer(_control!.Handle, VideoRetryTimerId);
+                if (!_recovering && !_shutDown && _video is null)
+                {
+                    StopContent();
+                    StartContent();
+                }
+
+                return true;
             case Power.WM_WTSSESSION_CHANGE or Power.WM_POWERBROADCAST:
                 return _power?.OnMessage(msg, wParam, lParam) == true;
             case PictureController.WM_FRAME_READY when _pictures is null:
@@ -245,12 +291,19 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
                 SetPausedByUser(command == ControlCommand.Pause, "command line");
                 break;
             case ControlCommand.Next or ControlCommand.Previous:
-                applicable = _pictures?.Step(backwards: command == ControlCommand.Previous) == true;
+                applicable = Step(backwards: command == ControlCommand.Previous);
                 break;
         }
 
         return CurrentState(applicable);
     }
+
+    /// <summary><c>--next</c> / <c>--previous</c> and the tray menu: the next video while videos play, otherwise the next picture.</summary>
+    private bool Step(bool backwards) =>
+        _video is not null ? StepVideo(backwards) : _pictures?.Step(backwards) == true;
+
+    /// <summary>True when videos take turns: slideshow mode with more than one video.</summary>
+    private bool CyclingVideos => _config.Mode == WallpaperMode.Slideshow && _videoOrder is { Count: > 1 };
 
     /// <summary>The user's own pause (<c>--pause</c> / <c>--resume</c>), on top of the automatic ones.</summary>
     private void SetPausedByUser(bool paused, string source)
@@ -272,7 +325,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
 
         if (_video is not null)
         {
-            state |= ControlState.Video;
+            state |= ControlState.Video | (CyclingVideos ? ControlState.Slideshow : ControlState.None);
         }
         else if (_pictures is not null)
         {
@@ -336,7 +389,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
                 RefreshTray(); // the tooltip is about to show
                 break;
             case User32.WM_LBUTTONUP or User32.WM_RBUTTONUP:
-                RunTrayAction(_tray.ShowMenu(CurrentState()));
+                RunTrayAction(_tray.ShowMenu(CurrentState(), videoFolder: _config.ResolveVideoFolders().Count > 1));
                 break;
         }
     }
@@ -346,14 +399,16 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         switch (action)
         {
             case TrayAction.Next or TrayAction.Previous:
-                _pictures?.Step(backwards: action == TrayAction.Previous);
+                Step(backwards: action == TrayAction.Previous);
                 break;
             case TrayAction.Pause or TrayAction.Resume:
                 SetPausedByUser(action == TrayAction.Pause, "tray icon");
                 break;
             case TrayAction.OpenCollection:
-                var folder = _config.ResolveCollectionFolder();
-                Open(folder, create: true);
+                Open(_config.ResolveCollectionFolder(), create: true);
+                break;
+            case TrayAction.OpenVideos:
+                Open(_config.ResolveVideoFolder(), create: true);
                 break;
             case TrayAction.EditConfig:
                 Open(_configPath, editor: true);
@@ -519,14 +574,23 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         }
     }
 
-    /// <summary>Watches the collection folder for added, changed and removed pictures and videos.</summary>
+    /// <summary>Watches the collection folder for added, changed and removed pictures and videos, and the video folder for videos.</summary>
     private void WatchCollection()
     {
         _collectionWatcher?.Dispose();
+        _videoWatcher?.Dispose();
+        _videoWatcher = null;
+        var collection = _config.ResolveCollectionFolder();
         _collectionWatcher = FileChangeWatcher.Start(
-            _config.ResolveCollectionFolder(), "*",
+            collection, "*",
             path => MediaScanner.IsSupported(path, MediaKind.Picture) || MediaScanner.IsSupported(path, MediaKind.Video),
             _control!.Handle, WM_COLLECTION_CHANGED, _log);
+        if (_config.ResolveVideoFolders().Count > 1)
+        {
+            _videoWatcher = FileChangeWatcher.Start(
+                _config.ResolveVideoFolder(), "*.mp4", path => MediaScanner.IsSupported(path, MediaKind.Video),
+                _control.Handle, WM_COLLECTION_CHANGED, _log);
+        }
     }
 
     /// <summary>config.json changed on disk: apply the new settings without a restart.</summary>
@@ -564,9 +628,17 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
             }
         }
 
-        var folderChanged = !string.Equals(fresh.ResolveCollectionFolder(), _config.ResolveCollectionFolder(), StringComparison.OrdinalIgnoreCase);
-        _log.Info($"Config reloaded: collection {fresh.ResolveCollectionFolder()}, mode {fresh.Mode}, interval {fresh.IntervalSeconds}s, scaling {fresh.Scaling}, video {(fresh.Video.Enabled ? "on" : "off")}");
+        var folderChanged = !string.Equals(fresh.ResolveCollectionFolder(), _config.ResolveCollectionFolder(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(fresh.ResolveVideoFolder(), _config.ResolveVideoFolder(), StringComparison.OrdinalIgnoreCase);
+        _log.Info($"Config reloaded: collection {fresh.ResolveCollectionFolder()}, videos {fresh.ResolveVideoFolder()}, mode {fresh.Mode}, interval {fresh.IntervalSeconds}s, scaling {fresh.Scaling}, video {(fresh.Video.Enabled ? "on" : "off")}");
+        if (!string.Equals(fresh.ResolveVideo(), _config.ResolveVideo(), StringComparison.OrdinalIgnoreCase))
+        {
+            _currentVideo = null; // start with the newly configured video
+        }
+
         _config = fresh;
+        _videoOrder = null; // shuffle may have changed
+        _brokenVideos.Clear();
         var oldBrush = _backgroundBrush;
         _backgroundBrush = Gdi32.CreateSolidBrush(fresh.ResolveBackgroundColor().ToColorRef());
         Gdi32.DeleteObject(oldBrush);
@@ -587,8 +659,9 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     }
 
     /// <summary>
-    /// Pictures or videos were added, changed or removed: switch to a video that appeared (or away from one that
-    /// went), and let the pictures pick up the new set.
+    /// Pictures or videos were added, changed or removed: the playing video keeps playing while it is still there
+    /// (and new videos join the turns); otherwise switch to a video that appeared, or away from one that went, and
+    /// let the pictures pick up the new set.
     /// </summary>
     private void OnCollectionChanged()
     {
@@ -598,16 +671,24 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         }
 
         _log.Info("Collection folder changed");
-        var playing = _video?.Path;
-        var wanted = _config.Video.Enabled ? FindVideo().PlayPath : null;
-        if (!string.Equals(playing, wanted, StringComparison.OrdinalIgnoreCase))
+        _brokenVideos.Clear();
+        var videos = _config.Video.Enabled ? ScanVideos() : [];
+        if (_video is not null && videos.Contains(_currentVideo!, StringComparer.OrdinalIgnoreCase))
         {
-            StopContent();
-            StartContent();
+            _videoOrder?.Update(videos);
+            ScheduleVideoTurns();
+            RefreshTray();
             return;
         }
 
-        _pictures?.Refresh();
+        if (_video is null && videos.Count == 0)
+        {
+            _pictures?.Refresh();
+            return;
+        }
+
+        StopContent();
+        StartContent();
     }
 
     /// <summary>Polled: pauses the monitor a full-screen window covers, or everything for an exclusive full-screen game.</summary>
@@ -646,6 +727,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
 
     private void StopContent()
     {
+        User32.KillTimer(_control!.Handle, VideoTimerId);
         _video?.Stop();
         _video = null;
         _pictures?.Stop();
@@ -660,15 +742,97 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
             return false;
         }
 
-        var choice = FindVideo();
-        var started = choice.PlayPath is { } path && StartVideo(path);
-        if (choice.ToCompress is { } original && _compression is not { IsCompleted: false })
+        var videos = ScanVideos();
+        _videoOrder ??= new MediaSequence(_config.Shuffle);
+        _videoOrder.Update(videos);
+        if (videos.Count == 0)
         {
-            // The original plays meanwhile (or pictures, if it could not be started).
-            CompressInBackground(original);
+            _currentVideo = null;
+            _log.Info("No video in the video or collection folder; showing pictures");
+            return false;
+        }
+
+        if (_currentVideo is null || !videos.Contains(_currentVideo, StringComparer.OrdinalIgnoreCase))
+        {
+            if (ConfiguredVideo() is { } configured)
+            {
+                _currentVideo = configured;
+                _videoOrder.JumpTo(configured);
+            }
+            else
+            {
+                _currentVideo = _videoOrder.Next();
+            }
+        }
+
+        // The current video, or else the next one that starts; pictures only when none does.
+        for (var tries = 0; tries < videos.Count && _currentVideo is not null; tries++)
+        {
+            if (!_brokenVideos.Contains(_currentVideo) && StartVideoFile(_currentVideo))
+            {
+                ScheduleVideoTurns();
+                return true;
+            }
+
+            _brokenVideos.Add(_currentVideo);
+            _currentVideo = _videoOrder.Next();
+        }
+
+        _log.Warn("No video could be played; showing pictures");
+        return false;
+    }
+
+    /// <summary>Plays one video (its compressed copy when there is one), compressing it in the background when needed.</summary>
+    private bool StartVideoFile(string original)
+    {
+        if (VideoFileKey.TryFromFile(original) is not { } key)
+        {
+            return false;
+        }
+
+        var choice = VideoChooser.Choose([key], k => VideoCompressionFlow.FindPlayable(k, _log), _config.Video.Compress, _log);
+        var started = choice.PlayPath is { } path && StartVideo(path);
+        if (choice.ToCompress is { } toCompress && _compression is not { IsCompleted: false })
+        {
+            // The original plays meanwhile (or the next video, if it could not be started).
+            CompressInBackground(toCompress);
         }
 
         return started;
+    }
+
+    /// <summary>Switches to the next (or previous) video now; false when there is no other video.</summary>
+    private bool StepVideo(bool backwards)
+    {
+        if (!CyclingVideos || _recovering || _shutDown)
+        {
+            return false;
+        }
+
+        var next = backwards ? _videoOrder!.Previous() : _videoOrder!.Next();
+        if (next is null || string.Equals(next, _currentVideo, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        _log.Info($"Switching to the {(backwards ? "previous" : "next")} video: {next}");
+        _currentVideo = next;
+        StopContent();
+        StartContent();
+        return true;
+    }
+
+    /// <summary>Starts (or restarts) the timer for the next video when videos take turns, and stops it otherwise.</summary>
+    private void ScheduleVideoTurns()
+    {
+        if (_video is not null && CyclingVideos)
+        {
+            User32.SetTimer(_control!.Handle, VideoTimerId, (uint)_config.IntervalSeconds * 1000, IntPtr.Zero);
+        }
+        else
+        {
+            User32.KillTimer(_control!.Handle, VideoTimerId);
+        }
     }
 
     private bool StartVideo(string path)
@@ -677,11 +841,12 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         if (!_video.Start(path, Monitors.RelativeToVirtualScreen()))
         {
             _video = null;
-            _log.Warn("Falling back to pictures");
             return false;
         }
 
         var video = _video;
+        var original = _currentVideo;
+        _videoStartedAt = Environment.TickCount64;
         video.Failed += () =>
         {
             if (!ReferenceEquals(_video, video))
@@ -690,8 +855,19 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
             }
 
             _video = null;
-            _log.Warn("Falling back to pictures");
-            StartPictures();
+            var playedMs = Environment.TickCount64 - _videoStartedAt;
+            if (playedMs >= VideoRestartAfterMs)
+            {
+                _log.Warn($"The video stopped after {playedMs / 60_000} min of playback; starting it again");
+            }
+            else if (original is not null)
+            {
+                _brokenVideos.Add(original);
+                _log.Warn("The video failed right after it started; trying another video");
+            }
+
+            // Not from inside the failing player's own message: start again from a timer.
+            User32.SetTimer(_control!.Handle, VideoRetryTimerId, VideoRetryDelayMs, IntPtr.Zero);
         };
         video.ApplyPause(_pause);
         ResourceSaver.Trim();
@@ -699,28 +875,14 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     }
 
     /// <summary>
-    /// The configured video if it is usable, otherwise the first .mp4 in the collection; its compressed copy
-    /// when there is one (see <see cref="VideoCompressionFlow"/>).
-    /// </summary>
-    private VideoChoice FindVideo()
-    {
-        var choice = VideoChooser.Choose(VideoCandidates(), key => VideoCompressionFlow.FindPlayable(key, _log), _config.Video.Compress, _log);
-        if (choice.PlayPath is null)
-        {
-            _log.Info("No video in the collection; showing pictures");
-        }
-
-        return choice;
-    }
-
-    /// <summary>
-    /// Compresses the playing video on a worker thread (with a Windows notification, never a question) and
-    /// switches to the compressed copy once it is ready.
+    /// Compresses a video on a worker thread (with a Windows notification, never a question) and switches to the
+    /// compressed copy once it is ready, if that video is still the one playing.
     /// </summary>
     private void CompressInBackground(VideoFileKey key)
     {
         var hwnd = _control!.Handle;
         var token = _cancel.Token;
+        _compressing = key.FullPath;
         _compression = Task.Run(() =>
         {
             try
@@ -739,7 +901,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         }, CancellationToken.None);
     }
 
-    /// <summary>Runs on the UI thread: replaces whatever is shown with the compressed video.</summary>
+    /// <summary>Runs on the UI thread: replaces the playing video with its compressed copy.</summary>
     private void SwitchToCompressedVideo()
     {
         var path = _compressedPath;
@@ -748,40 +910,65 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
             return; // after recovery the compressed copy is found through its record
         }
 
+        if (_video is null || !string.Equals(_compressing, _currentVideo, StringComparison.OrdinalIgnoreCase))
+        {
+            // Another video (or pictures) is shown by now; the copy plays the next time this video's turn comes.
+            _log.Info($"Compressed video ready: {path}");
+            return;
+        }
+
         _log.Info($"Compressed video ready; switching to {path}");
         StopContent();
-        if (!StartVideo(path))
-        {
-            StartPictures();
-        }
+        StartContent();
     }
 
-    /// <summary>The configured video (when it exists), then every .mp4 in the collection.</summary>
-    private IEnumerable<VideoFileKey> VideoCandidates()
+    /// <summary>Every .mp4 in the video folder and the collection folder, with the configured video first when it is elsewhere.</summary>
+    private List<string> ScanVideos()
     {
-        var configured = _config.ResolveVideo();
-        if (configured is not null)
+        // No size limit: every video plays (compressed first when video.compress is on).
+        var videos = new List<string>();
+        foreach (var folder in _config.ResolveVideoFolders())
         {
-            var key = MediaScanner.IsSupported(configured, MediaKind.Video) ? VideoFileKey.TryFromFile(configured) : null;
-            if (key is not null)
+            foreach (var path in _videoScanner.Scan(folder, MediaKind.Video, int.MaxValue))
             {
-                yield return key;
-            }
-            else
-            {
-                var problem = MediaScanner.IsSupported(configured, MediaKind.Video) ? "does not exist" : "is not an .mp4 file";
-                _log.Warn($"Configured video {configured} {problem}; looking for another video in the collection");
+                if (!videos.Contains(path, StringComparer.OrdinalIgnoreCase))
+                {
+                    videos.Add(path);
+                }
             }
         }
 
-        // No size limit: every video plays (compressed first when video.compress is on).
-        foreach (var path in new MediaScanner(_log).Scan(_config.ResolveCollectionFolder(), MediaKind.Video, int.MaxValue))
+        if (ConfiguredVideo() is { } configured && !videos.Contains(configured, StringComparer.OrdinalIgnoreCase))
         {
-            if (VideoFileKey.TryFromFile(path) is { } key)
-            {
-                yield return key;
-            }
+            videos.Insert(0, configured);
         }
+
+        return videos;
+    }
+
+    /// <summary>The configured video (<c>video.file</c>) when it exists; null otherwise (with a warning once).</summary>
+    private string? ConfiguredVideo()
+    {
+        var configured = _config.ResolveVideo();
+        if (configured is null)
+        {
+            return null;
+        }
+
+        var supported = MediaScanner.IsSupported(configured, MediaKind.Video);
+        if (supported && VideoFileKey.TryFromFile(configured) is { SizeBytes: > 0 } key)
+        {
+            return key.FullPath;
+        }
+
+        if (!string.Equals(_warnedConfiguredVideo, configured, StringComparison.OrdinalIgnoreCase))
+        {
+            _warnedConfiguredVideo = configured;
+            var problem = supported ? "does not exist" : "is not an .mp4 file";
+            _log.Warn($"Configured video {configured} {problem}; playing the videos in the folders instead");
+        }
+
+        return null;
     }
 
     private void StartPictures()
@@ -816,6 +1003,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         _tray = null;
         _configWatcher?.Dispose();
         _collectionWatcher?.Dispose();
+        _videoWatcher?.Dispose();
         StopContent();
         _window?.Destroy();
         _window = null;

@@ -19,15 +19,15 @@ public sealed class CommandLineOptions
           --interval <seconds>   Slideshow interval (5..604800)
           --mode <mode>          slideshow | single
           --shuffle              Shuffle the slideshow
-          --video <file>         Play this .mp4 looped as the wallpaper (file name in the collection or full path)
-          --no-video             Show pictures even if the collection has a video
+          --video <file>         Start with this .mp4 video (file name in the video or collection folder, or full path)
+          --no-video             Show pictures even if there are videos
           --volume <0-100>       Video volume (0 = muted)
           --compress <file>      Compress a video for the wallpaper now, with progress (needs ffmpeg)
           --stop                 Stop the running instance and restore the wallpaper
           --pause                Pause the running wallpaper (video and slideshow) until --resume
           --resume               Resume after --pause
-          --next                 Show the next slideshow picture now
-          --previous             Go back to the previous slideshow picture
+          --next                 Switch to the next video or slideshow picture now
+          --previous             Go back to the previous video or slideshow picture
           --status               Show what the running wallpaper is doing
           --tray-icon <on|off>   Show or hide the notification-area icon (saved in config.json)
           --install-startup      Start Looppaper when you sign in (current user)
@@ -35,7 +35,7 @@ public sealed class CommandLineOptions
           --we-list              List the Wallpaper Engine Workshop wallpapers downloaded on this PC
           --we-set <number|id>   Use that Wallpaper Engine wallpaper (number from --we-list, or Workshop id)
           --we-pick              Show the list and ask which Wallpaper Engine wallpaper to use
-          --we-convert <num|id>  Record a Wallpaper Engine scene / web wallpaper to a looping .mp4 (cached)
+          --we-convert <num|id>  Record a Wallpaper Engine scene / web wallpaper to a looping .mp4 in the video folder
           --no-restart           With --we-set / --we-pick: only update config.json, don't restart Looppaper
           --check-update         Check GitHub once for a newer release and print the result (never downloads)
           --help                 Show this help

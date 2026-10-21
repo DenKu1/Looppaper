@@ -53,23 +53,26 @@ No admin rights and no .NET install needed.
    (the usual Windows folders, or everything in the install folder; see [Folder layout](#folder-layout)),
    asks whether to show the [tray icon](#tray-icon), registers it to start when you sign in, and starts it.
    Add `-Layout Standard` or `-Layout Portable` and `-TrayIcon On` or `-TrayIcon Off` to skip the questions.
-3. Put an `.mp4` video, or `.jpg` / `.jpeg` / `.png` pictures, into the collection folder:
-   `Pictures\Looppaper` (standard) or `collection` inside the install folder (everything in one folder).
-   If the folder has a video (and video is enabled) it plays looped, muted by default; otherwise the
-   pictures are shown. Looppaper watches the folder and `config.json`: added, replaced or removed
-   files and edited settings apply straight away, without a restart.
+3. Put `.jpg` / `.jpeg` / `.png` pictures into `Pictures\Looppaper` and `.mp4` videos into
+   `Videos\Looppaper` (standard), or both into `collection` inside the install folder (everything in one
+   folder). Until you do, Looppaper shows a wallpaper of its own that says where they go. Videos (when
+   video is enabled) play looped, muted by default, and take turns in slideshow mode; pictures are shown
+   only when there is no video. Looppaper watches the folders and `config.json`: added, replaced or
+   removed files and edited settings apply straight away, without a restart.
 
 To remove it: `powershell -ExecutionPolicy Bypass -File .\uninstall.ps1`. It removes the program,
 cache and logs; add `-RemoveSettings` to also delete `config.json`, and `-RemoveCollection` to delete
-the `collection` folder. Without those, your settings and your pictures and videos are kept.
+the `collection` folder (or, in the standard layout, the Wallpaper Engine videos Looppaper saved in
+`Videos\Looppaper`). Without those, your settings and your pictures and videos are kept.
 
 ### Folder layout
 
 The installer asks which one you want.
 
 **Standard (default).** The usual Windows folders: `config.json` in `%APPDATA%\Looppaper`; `cache\`,
-`logs\` and `compression.json` in `%LOCALAPPDATA%\Looppaper`; your pictures and videos in
-`%USERPROFILE%\Pictures\Looppaper`. Any `Looppaper.exe` without the marker file below (for example a
+`logs\` and `compression.json` in `%LOCALAPPDATA%\Looppaper`; your pictures in
+`%USERPROFILE%\Pictures\Looppaper` and your videos in `%USERPROFILE%\Videos\Looppaper` (videos in the
+pictures folder play too). Any `Looppaper.exe` without the marker file below (for example a
 `publish\` build) uses this layout.
 
 **Everything in one folder** (`install.ps1 -Layout Portable`). Everything lives next to `Looppaper.exe`:
@@ -87,8 +90,9 @@ The installer asks which one you want.
 
 The marker file is what switches this on, so any folder with `Looppaper.exe` and an empty
 `looppaper.portable` works the same way (`install.ps1 -Layout Portable -InstallDir D:\Apps\Looppaper`
-installs there). On its first start in such a folder, Looppaper copies the settings, the cached videos
-and the pictures/videos of `Pictures\Looppaper` from the standard folders (nothing is moved or deleted).
+installs there). On its first start in such a folder, Looppaper copies the settings, the cached videos,
+the pictures/videos of `Pictures\Looppaper` and the videos of `Videos\Looppaper` from the standard folders
+(nothing is moved or deleted).
 ## How it works
 
 Looppaper creates one borderless child window inside Explorer's desktop window, between the
@@ -98,7 +102,10 @@ scaled for every monitor into a single cached bitmap, and painted with one `BitB
 between slideshow steps. Videos play through the Media Foundation Media Engine built into Windows:
 the GPU decodes them and presents frames straight into a child window, so Looppaper does no
 per-frame work itself. Each monitor gets its own video window (only the first plays sound). If a
-video cannot be played, Looppaper logs why and falls back to the pictures. When Looppaper stops,
+video cannot be played, Looppaper logs why and moves on to the next video (or the pictures, when none
+plays); a video that stops after playing for a while (for example when the GPU runs out of memory) is
+started again. With nothing to show, Looppaper draws its own wallpaper: a gradient with its name and the
+folders to put pictures and videos in (nothing is saved for it). When Looppaper stops,
 the window is removed and your normal wallpaper is redrawn.
 
 It keeps going when the desktop changes under it:
@@ -108,7 +115,7 @@ It keeps going when the desktop changes under it:
   If Explorer is not running yet (an early sign-in), Looppaper waits for it.
 - **Monitors, resolution or DPI change**: once the change settles (about 1.5 s) the window is resized
   to the new virtual screen and the video players / picture are rebuilt for each monitor.
-- **`config.json` or the collection folder changes**: the new settings or files are picked up (after
+- **`config.json`, the collection folder or the video folder changes**: the new settings or files are picked up (after
   0.5 s / 2 s of quiet). A half-written or invalid `config.json` is ignored and the current settings stay;
   command-line overrides still apply on top of the reloaded file. `watchdog` applies at the next start.
 - **It crashes**: a small watchdog copy (`Looppaper.exe ... --watchdog <pid>`, ~6 MB of RAM, idle) waits
@@ -162,21 +169,22 @@ in the log); a file that is not valid JSON is ignored and the defaults are used.
 
 ```jsonc
 {
-  "collectionFolder": "%USERPROFILE%\\Pictures\\Looppaper", // pictures and videos; "collection" when everything is in one folder
+  "collectionFolder": "%USERPROFILE%\\Pictures\\Looppaper", // pictures (and videos); "collection" when everything is in one folder
   "mode": "slideshow",          // "slideshow" or "single"
   "picture": null,              // single mode: file name in the collection, or a full path
-  "intervalSeconds": 300,       // slideshow interval, 5..604800
+  "intervalSeconds": 300,       // slideshow interval (pictures, and videos when there are several), 5..604800
   "shuffle": false,             // random slideshow order
   "scaling": "fill",            // "fill" | "fit" | "stretch" | "center"
-  "backgroundColor": "#000000", // shown around "fit"/"center" pictures and when there is nothing to show
+  "backgroundColor": "#000000", // shown around "fit"/"center" pictures
   "maxPictureSizeMb": 50,       // larger pictures are skipped (cap 200)
   "checkForUpdates": false,     // true = check GitHub once at start for a newer release and log it (never downloads)
   "watchdog": true,             // restore the Windows wallpaper (and restart after a crash) if Looppaper ends unexpectedly
-  "trayIcon": true,             // notification-area icon with a menu (next / previous picture, pause, folders, stop); see "Tray icon"
+  "trayIcon": true,             // notification-area icon with a menu (next / previous wallpaper, pause, folders, stop); see "Tray icon"
   "ffmpegPath": null,          // ffmpeg.exe or its folder; null = search PATH, winget, scoop, Chocolatey (only needed for conversion and compression)
   "video": {
     "enabled": true,            // false = always show pictures
-    "file": null,               // file name in the collection, or a full path; null = first .mp4 in the collection
+    "folder": "%USERPROFILE%\\Videos\\Looppaper", // videos and Wallpaper Engine wallpapers; "collection" when everything is in one folder
+    "file": null,               // the video to start with: file name in the video or collection folder, or a full path; null = the first one
     "volume": 0,                // 0..100; 0 = muted
     "compress": true            // compress each video once (into the cache) before playing it; see "Video compression"
   },
@@ -194,8 +202,10 @@ in the log); a file that is not valid JSON is ignored and the defaults are used.
 ```
 
 Supported files: `.jpg`, `.jpeg`, `.png` pictures and `.mp4` videos (H.264 / HEVC, as supported by
-Windows' own video player), in the top level of the folder. When video is enabled and a video is
-available it is the wallpaper; `mode`, `picture`, `intervalSeconds` and `shuffle` apply to pictures.
+Windows' own video player), in the top level of the folders. Videos are found in the video folder and the
+collection folder. When video is enabled and there is a video, videos are the wallpaper and pictures are not
+shown: in slideshow mode several videos take turns every `intervalSeconds` (in random order with `shuffle`),
+starting with `video.file` when it is set; in single mode one video plays. `picture` applies to pictures;
 `scaling` and `backgroundColor` apply to both.
 
 ## Command line
@@ -209,15 +219,15 @@ Looppaper.exe [options]
   --interval <seconds>   Slideshow interval (5..604800)
   --mode <mode>          slideshow | single
   --shuffle              Shuffle the slideshow
-  --video <file>         Play this .mp4 looped as the wallpaper (file name in the collection or full path)
-  --no-video             Show pictures even if the collection has a video
+  --video <file>         Start with this .mp4 video (file name in the video or collection folder, or full path)
+  --no-video             Show pictures even if there are videos
   --volume <0-100>       Video volume (0 = muted)
   --compress <file>      Compress a video for the wallpaper now, with progress (needs ffmpeg)
   --stop                 Stop the running instance and restore the wallpaper
   --pause                Pause the running wallpaper (video and slideshow) until --resume
   --resume               Resume after --pause
-  --next                 Show the next slideshow picture now
-  --previous             Go back to the previous slideshow picture
+  --next                 Switch to the next video or slideshow picture now
+  --previous             Go back to the previous video or slideshow picture
   --status               Show what the running wallpaper is doing
   --tray-icon <on|off>   Show or hide the notification-area icon (saved in config.json)
   --install-startup      Start Looppaper when you sign in (current user)
@@ -225,7 +235,7 @@ Looppaper.exe [options]
   --we-list              List the Wallpaper Engine Workshop wallpapers downloaded on this PC
   --we-set <number|id>   Use that Wallpaper Engine wallpaper (number from --we-list, or Workshop id)
   --we-pick              Show the list and ask which Wallpaper Engine wallpaper to use
-  --we-convert <num|id>  Record a Wallpaper Engine scene / web wallpaper to a looping .mp4 (cached)
+  --we-convert <num|id>  Record a Wallpaper Engine scene / web wallpaper to a looping .mp4 in the video folder
   --no-restart           With --we-set / --we-pick: only update config.json, don't restart Looppaper
   --check-update         Check GitHub once for a newer release and print the result (never downloads)
   --help                 Show this help
@@ -244,21 +254,21 @@ a shortcut or a script; each prints what the wallpaper is doing afterwards:
 Looppaper.exe --status      # e.g. "Playing a video." or "Showing a slideshow; paused (automatically: the PC is locked)."
 Looppaper.exe --pause       # pause the video / hold the slideshow until --resume
 Looppaper.exe --resume
-Looppaper.exe --next        # slideshow: show the next picture now (the interval starts again)
-Looppaper.exe --previous    # slideshow: go back to the previous picture (also when shuffled)
+Looppaper.exe --next        # slideshow: show the next video or picture now (the interval starts again)
+Looppaper.exe --previous    # slideshow: go back to the previous video or picture (also when shuffled)
 ```
 
 `--pause` is your own pause, next to the automatic ones (full-screen app, locked, battery saver, ...):
 `--resume` lifts only yours, so the wallpaper still waits while, say, a game is full screen. It lasts until
-`--resume` or until Looppaper restarts. `--next` / `--previous` while paused switch the picture and stay paused;
-they do nothing for a video or in single-picture mode, and say so. If Looppaper is not running the commands
+`--resume` or until Looppaper restarts. `--next` / `--previous` while paused switch the wallpaper and stay paused;
+they do nothing with only one video or in single mode, and say so. If Looppaper is not running the commands
 say that and exit with code 3.
 
 ### Tray icon
 
 Looppaper shows an icon in the notification area (a play sign, or pause bars while paused; hover it to see
-what is shown). Left- or right-click it for a menu: next / previous picture, pause / resume, open the
-collection folder, edit `config.json`, open the log, and stop Looppaper. The installer asks whether you want
+what is shown). Left- or right-click it for a menu: next / previous wallpaper, pause / resume, open the
+collection and videos folders, edit `config.json`, open the log, and stop Looppaper. The installer asks whether you want
 it (`-TrayIcon On` or `-TrayIcon Off` skips the question). Change it later with
 `Looppaper.exe --tray-icon off` (or `on`), or `"trayIcon"` in `config.json`; a running Looppaper follows
 straight away. Windows 11 may first put a new icon in the hidden-icons area (`^`); drag it onto the taskbar
@@ -330,7 +340,7 @@ until you subscribe to or remove a wallpaper. Statuses:
 |---|---|
 | ready | an `.mp4` video; compressed once (see [Video compression](#video-compression)) and played |
 | needs conversion | a scene or web wallpaper; it is recorded to a looping `.mp4` first |
-| converted | a scene or web wallpaper already recorded (in `%LOCALAPPDATA%\Looppaper\cache`) |
+| converted | a scene or web wallpaper already recorded (in the video folder) |
 | unsupported | an application wallpaper, a video that is not `.mp4`, or a broken item |
 
 To use one, run `Looppaper.exe --we-set <number or Workshop id>`, or `Looppaper.exe --we-pick` to see the
@@ -338,8 +348,11 @@ list and type a number. Looppaper writes `"video": { "enabled": true, "file": "<
 `config.json` (your other settings are kept; comments in the file are not) and restarts a running Looppaper
 so the new wallpaper shows straight away. Add `--no-restart` to only change the config.
 
-A video wallpaper is compressed right there, like `--compress` (an existing compressed copy is reused), and
-then set; the original Workshop file is never changed.
+A video wallpaper is compressed right there, like `--compress`, and the copy is saved in the video folder as
+`<title> (we-<Workshop id>-<modified time>).mp4`, so every wallpaper you pick stays in your collection (and takes
+turns with your other videos); the original Workshop file is never changed. Recordings made by older versions
+(`we-<id>-<time>.mp4` in the cache) are moved to the video folder the next time a `--we-*` command runs, and
+`config.json` follows them.
 
 ### Scene and web wallpapers
 
@@ -358,8 +371,8 @@ the recording and closes it again afterwards; while it runs it may show its own 
 - Encoder: the first hardware encoder that works (NVIDIA NVENC, AMD AMF, Intel QSV), else the CPU (x264),
   at the same quality target as [video compression](#video-compression) (so the recording is already compressed;
   it is not encoded a second time), aiming to keep the file under 100 MB (a larger result is kept, with a size warning).
-- Result: `%LOCALAPPDATA%\Looppaper\cache\we-<Workshop id>-<modified time>.mp4`. When the Workshop item is
-  updated it is recorded again; deleting the cache folder is always safe. Ctrl+C cancels and saves nothing.
+- Result: `<title> (we-<Workshop id>-<modified time>).mp4` in the video folder. When the Workshop item is
+  updated it is recorded again and the older recording is deleted. Ctrl+C cancels and saves nothing.
 
 Application wallpapers are programs, not media, and are listed as unsupported.
 

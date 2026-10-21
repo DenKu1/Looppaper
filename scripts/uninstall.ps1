@@ -18,7 +18,8 @@ param(
     # Also delete config.json and the compression records (and, for the standard layout, %APPDATA%\Looppaper).
     [switch]$RemoveSettings,
 
-    # Also delete the collection folder inside the install folder (portable layout). Never touches Pictures.
+    # Also delete the collection folder inside the install folder (portable layout), or the Wallpaper Engine
+    # videos Looppaper saved in Videos\Looppaper (standard layout). Never touches your own pictures and videos there.
     [switch]$RemoveCollection,
 
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'Programs\Looppaper')
@@ -63,6 +64,18 @@ if (-not $portable) {
     $local = Join-Path $env:LOCALAPPDATA 'Looppaper'
     Remove-IfPresent (Join-Path $local 'cache')
     Remove-IfPresent (Join-Path $local 'logs')
+    if ($RemoveCollection) {
+        # Only what Looppaper made there: "<title> (we-<id>-<time>).mp4" recordings and copies.
+        $videos = Join-Path $env:USERPROFILE 'Videos\Looppaper'
+        if (Test-Path -LiteralPath $videos) {
+            Get-ChildItem -LiteralPath $videos -File -Filter '*.mp4' |
+                Where-Object { $_.BaseName -match '(^|\()we-[A-Za-z0-9_-]+-\d{8}T\d{6}\)?$' } |
+                ForEach-Object { Remove-IfPresent $_.FullName }
+            if (-not (Get-ChildItem -LiteralPath $videos -Force | Select-Object -First 1)) {
+                Remove-IfPresent $videos
+            }
+        }
+    }
     if ($RemoveSettings) {
         Remove-IfPresent $local
         Remove-IfPresent (Join-Path $env:APPDATA 'Looppaper')

@@ -77,9 +77,12 @@ public class ControlProtocolTests
         var single = new ControlReply(ControlState.Running | ControlState.Pictures | ControlState.NotApplicable, PauseReason.None);
         var slideshow = new ControlReply(ControlState.Running | ControlState.Pictures | ControlState.Slideshow, PauseReason.None);
 
-        Assert.StartsWith("A video is the wallpaper", video.DescribeResult(ControlCommand.Next));
+        var videos = new ControlReply(ControlState.Running | ControlState.Video | ControlState.Slideshow, PauseReason.None);
+
+        Assert.StartsWith("There is no other video", video.DescribeResult(ControlCommand.Next));
         Assert.StartsWith("Single-picture mode", single.DescribeResult(ControlCommand.Previous));
         Assert.Equal("Switching to the next picture. Showing a slideshow.", slideshow.DescribeResult(ControlCommand.Next));
+        Assert.Equal("Switching to the previous video. Playing videos in turn.", videos.DescribeResult(ControlCommand.Previous));
     }
 
     [Fact]

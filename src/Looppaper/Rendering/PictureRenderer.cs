@@ -86,6 +86,32 @@ internal static class PictureRenderer
         }
     }
 
+    /// <summary>Renders Looppaper's own wallpaper (<see cref="DefaultWallpaper"/>). Returns an HBITMAP or null on failure.</summary>
+    public static IntPtr RenderDefault(int width, int height, IReadOnlyList<IntRect> monitors, IReadOnlyList<string> hint, ILog log)
+    {
+        if (width <= 0 || height <= 0)
+        {
+            return IntPtr.Zero;
+        }
+
+        try
+        {
+            using var canvas = new Bitmap(width, height, PixelFormat.Format32bppRgb);
+            using (var g = Graphics.FromImage(canvas))
+            {
+                g.Clear(Color.Black);
+                DefaultWallpaper.Draw(g, monitors, hint);
+            }
+
+            return canvas.GetHbitmap();
+        }
+        catch (Exception ex) when (ex is ArgumentException or ExternalException or OutOfMemoryException)
+        {
+            log.Error("Rendering the default wallpaper failed", ex);
+            return IntPtr.Zero;
+        }
+    }
+
     private static Image? TryDecode(string path, ILog log)
     {
         try

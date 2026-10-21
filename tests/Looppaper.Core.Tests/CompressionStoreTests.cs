@@ -59,6 +59,25 @@ public class CompressionStoreTests
     }
 
     [Fact]
+    public void RecordsFollowAMovedFile()
+    {
+        using var dir = new TempDir();
+        var file = Path.Combine(dir.Path, "c.json");
+        var cached = dir.File("we-1-20250102T030405.mp4", 90);
+        var store = new CompressionStore(file, new MemoryLog());
+        var cachedKey = VideoFileKey.TryFromFile(cached)!;
+        store.RecordKeepOriginal(cachedKey);
+        store.RecordCompressed(Video, cached);
+        var moved = Path.Combine(dir.Path, "Rain (we-1-20250102T030405).mp4");
+        File.Move(cached, moved);
+
+        store.Rename(cached, moved);
+
+        Assert.Equal(moved, store.FindCompressed(Video));
+        Assert.True(store.IsKeptAsIs(VideoFileKey.TryFromFile(moved)!));
+    }
+
+    [Fact]
     public void ForgetsACopyThatIsGone()
     {
         using var dir = new TempDir();

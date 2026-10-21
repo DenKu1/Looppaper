@@ -189,7 +189,7 @@ Public since 2026-10-21.
 - [x] 11.7 Switch the repository to public. Done by the owner, or by an assistant only with the owner's explicit
       go-ahead; always the last step. Switched on 2026-10-21 with the owner's go-ahead.
 
-## Epic 13 — Default wallpaper, video folder & video cycling
+## Epic 13 — Default wallpaper, video folder & video cycling (done)
 
 A new install shows something straight away, everything converted from Wallpaper Engine stays in the collection,
 and the slideshow switches between videos too.
@@ -198,21 +198,23 @@ Owner's decisions (2026-10-21): all three parts approved; cycling is videos only
 video). The log warnings about `D:\path\your.mp4` and `C:\Users\You\Videos\my-video.mp4` came from manual test
 commands with example paths, not from Looppaper, so there is nothing to fix there.
 
-- [ ] 13.1 Built-in default wallpaper: when there is no picture or video to show, Looppaper draws its own
+- [x] 13.1 Built-in default wallpaper: when there is no picture or video to show, Looppaper draws its own
       wallpaper (a gradient with the name and where to put pictures and videos) instead of the plain background
       color. Nothing is written to the collection.
-- [ ] 13.2 A video folder: `video.folder`, `%USERPROFILE%\Videos\Looppaper` in the standard layout and the
+- [x] 13.2 A video folder: `video.folder`, `%USERPROFILE%\Videos\Looppaper` in the standard layout and the
       install folder's `collection` in the one-folder layout. Videos are found there and, as before, in the
       collection folder. The installer creates it, the tray menu opens it, uninstall `-RemoveCollection` covers
       it, and the one-folder migration copies it.
-- [ ] 13.3 Wallpaper Engine results go to the video folder with readable names
+- [x] 13.3 Wallpaper Engine results go to the video folder with readable names
       (`<title> (we-<id>-<time>).mp4`): scene / web recordings, and the (compressed) copy of a video wallpaper,
       so every pick stays in the collection. Older recordings in the cache are moved there (with `config.json`
       and the compression records updated) the next time a `--we-*` command runs.
-- [ ] 13.4 Video cycling: in slideshow mode several videos take turns every `intervalSeconds` (shuffled with
+- [x] 13.4 Video cycling: in slideshow mode several videos take turns every `intervalSeconds` (shuffled with
       `shuffle`), starting with `video.file` when it is set; single mode keeps playing one video. `--next` /
       `--previous` and the tray menu switch videos too. Pictures are shown only when there is no video.
-- [ ] 13.5 Tests and README.
+- [x] 13.5 Tests and README. A video that stops after playing a while (e.g. the GPU ran out of memory) is started
+      again; one that fails right away is skipped for the next video, and pictures show only when none plays.
+
 ## Won't do (for now)
 
 Parked; kept here so the ideas are not lost.
@@ -220,7 +222,7 @@ Parked; kept here so the ideas are not lost.
 ### Epic 3 — Animated wallpapers
 
 - [ ] GIF with frame-rate cap
-- [ ] WebM / other containers beyond `.mp4`; video playlists (rotate between several videos)
+- [ ] WebM / other containers beyond `.mp4` (video playlists came with Epic 13)
 - [ ] One decoder shared across monitors (today each monitor decodes its own copy)
 - [ ] APNG / animated WebP
 

@@ -37,6 +37,10 @@ public sealed class LooppaperConfig
     public static string DefaultCollectionFolder =>
         AppPaths.Layout == InstallLayout.Portable ? AppPaths.PortableCollectionFolder : AppPaths.Standard.CollectionFolder;
 
+    /// <summary>`collection` inside the install folder (portable layout) or Videos\Looppaper (standard layout).</summary>
+    public static string DefaultVideoFolder =>
+        AppPaths.Layout == InstallLayout.Portable ? AppPaths.PortableCollectionFolder : AppPaths.Standard.VideoFolder;
+
     public string CollectionFolder { get; set; } = DefaultCollectionFolder;
 
     public WallpaperMode Mode { get; set; } = WallpaperMode.Slideshow;
@@ -66,7 +70,7 @@ public sealed class LooppaperConfig
     /// </summary>
     public bool Watchdog { get; set; } = true;
 
-    /// <summary>Show a notification-area icon with a small menu (next / previous picture, pause, open folders, stop). On by default; the installer asks.</summary>
+    /// <summary>Show a notification-area icon with a small menu (next / previous wallpaper, pause, open folders, stop). On by default; the installer asks.</summary>
     public bool TrayIcon { get; set; } = true;
 
     public VideoConfig Video { get; set; } = new();
@@ -86,8 +90,39 @@ public sealed class LooppaperConfig
     /// <summary>Absolute path of the configured single picture, or null when none is set.</summary>
     public string? ResolvePicture() => ResolveInCollection(Picture);
 
-    /// <summary>Absolute path of the configured video file, or null to use the first video in the collection.</summary>
-    public string? ResolveVideo() => ResolveInCollection(Video.File);
+    /// <summary>Absolute video folder (<c>video.folder</c>), resolved like <see cref="ResolveCollectionFolder"/>.</summary>
+    public string ResolveVideoFolder() => AppPaths.ResolveDataPath(Video.Folder);
+
+    /// <summary>Where videos are found: the video folder, then the collection folder (once when they are the same).</summary>
+    public IReadOnlyList<string> ResolveVideoFolders()
+    {
+        var videos = ResolveVideoFolder();
+        var collection = ResolveCollectionFolder();
+        return string.Equals(Path.TrimEndingDirectorySeparator(videos), Path.TrimEndingDirectorySeparator(collection), StringComparison.OrdinalIgnoreCase)
+            ? [videos]
+            : [videos, collection];
+    }
+
+    /// <summary>
+    /// Absolute path of the configured video file, or null when none is set. A file name (or relative path) is
+    /// looked up in the video folder first, then in the collection folder.
+    /// </summary>
+    public string? ResolveVideo()
+    {
+        if (string.IsNullOrWhiteSpace(Video.File))
+        {
+            return null;
+        }
+
+        var expanded = Environment.ExpandEnvironmentVariables(Video.File.Trim().Trim('"'));
+        if (Path.IsPathRooted(expanded))
+        {
+            return Path.GetFullPath(expanded);
+        }
+
+        var inVideoFolder = Path.GetFullPath(Path.Combine(ResolveVideoFolder(), expanded));
+        return File.Exists(inVideoFolder) ? inVideoFolder : Path.GetFullPath(Path.Combine(ResolveCollectionFolder(), expanded));
+    }
 
     /// <summary>Absolute path of a file name in the collection folder, or of a full path; null when empty.</summary>
     public string? ResolveInCollection(string? file)
@@ -109,12 +144,20 @@ public sealed class LooppaperConfig
 
 public sealed class VideoConfig
 {
-
-    /// <summary>When true and a video is available, the looping video is the wallpaper instead of pictures.</summary>
+    /// <summary>When true and a video is available, looping videos are the wallpaper instead of pictures.</summary>
     public bool Enabled { get; set; } = true;
 
-    /// <summary>File name in the collection folder, or a full path; null means the first .mp4 in the collection.</summary>
+    /// <summary>
+    /// The video to start with: a file name in the video or collection folder, or a full path; null starts with
+    /// the first video found.
+    /// </summary>
     public string? File { get; set; }
+
+    /// <summary>
+    /// Folder for videos (<see cref="LooppaperConfig.DefaultVideoFolder"/>); Wallpaper Engine recordings are saved
+    /// here. Videos in the collection folder play too.
+    /// </summary>
+    public string Folder { get; set; } = LooppaperConfig.DefaultVideoFolder;
 
     /// <summary>0..100; 0 mutes the video.</summary>
     public int Volume { get; set; }

@@ -71,11 +71,11 @@ public class WorkshopLibraryTests
         Item(workshop, "400", """{ "title": "App", "type": "application", "file": "app.exe" }""", ("app.exe", 100));
         Item(workshop, "500", "{ not json", ("x.bin", 10));
         Directory.CreateDirectory(Path.Combine(workshop, "600")); // no project.json: skipped
-        var cached = ConversionCache.PathFor(cache.Path, "201", ConversionCache.ModifiedUtc(converted));
+        var cached = ConversionCache.PathFor(cache.Path, "A scene", "201", ConversionCache.ModifiedUtc(converted));
         File.WriteAllBytes(cached, [1, 2, 3]);
         var log = new MemoryLog();
 
-        var items = WorkshopLibrary.Scan([workshop], cache.Path, log);
+        var items = WorkshopLibrary.Scan([workshop], [cache.Path], log);
 
         Assert.Equal(["100", "102", "101", "201", "200", "300", "400", "500"], items.Select(i => i.Id));
         Assert.Equal(Enumerable.Range(1, 8), items.Select(i => i.Number));
@@ -101,7 +101,7 @@ public class WorkshopLibraryTests
         using var dir = new TempDir();
         var folder = Item(dir.Path, "1", """{ "type": "video", "file": "..\\..\\secret.mp4" }""");
 
-        var item = WorkshopLibrary.Describe("1", folder, ProjectFile.Read(folder)!, dir.Path);
+        var item = WorkshopLibrary.Describe("1", folder, ProjectFile.Read(folder)!, [dir.Path]);
 
         Assert.Equal(WorkshopItemStatus.Unsupported, item.Status);
         Assert.Null(item.FilePath);
@@ -143,17 +143,31 @@ public class WorkshopLibraryTests
     [Fact]
     public void CacheKeyChangesWithModifiedTimeAndFindsStaleCopies()
     {
+        using var videos = new TempDir();
         using var cache = new TempDir();
         var old = new DateTime(2025, 1, 2, 3, 4, 5, DateTimeKind.Utc);
         var updated = old.AddDays(1);
-        File.WriteAllBytes(ConversionCache.PathFor(cache.Path, "123", old), [1]);
+        var recording = ConversionCache.PathFor(videos.Path, "Night: city", "123", old);
+        File.WriteAllBytes(recording, [1]);
+        File.WriteAllBytes(Path.Combine(videos.Path, "unrelated (we-1234-20250102T030405).mp4"), [1]);
+        File.WriteAllBytes(Path.Combine(videos.Path, "holiday.mp4"), [1]);
+        var legacy = Path.Combine(cache.Path, "we-77-20250102T030405.mp4");
+        File.WriteAllBytes(legacy, [1]);
+        string[] folders = [videos.Path, cache.Path];
 
-        Assert.Equal("we-123-20250102T030405.mp4", ConversionCache.FileName("123", old));
-        Assert.NotNull(ConversionCache.Find(cache.Path, "123", old));
-        Assert.Null(ConversionCache.Find(cache.Path, "123", updated));
-        Assert.Equal([ConversionCache.PathFor(cache.Path, "123", old)], ConversionCache.Stale(cache.Path, "123", updated));
-        Assert.Empty(ConversionCache.Stale(cache.Path, "1234", updated));
-        Assert.Equal("we-___x-20250102T030405.mp4", ConversionCache.FileName("../x", old));
+        Assert.Equal("Night city (we-123-20250102T030405).mp4", Path.GetFileName(recording));
+        Assert.Equal("we-123-20250102T030405.mp4", ConversionCache.FileName(" ... ", "123", old));
+        Assert.Equal(recording, ConversionCache.Find(folders, "123", old));
+        Assert.Null(ConversionCache.Find(folders, "123", updated));
+        Assert.Equal([recording], ConversionCache.Stale(folders, "123", updated));
+        Assert.Empty(ConversionCache.Stale(folders, "12", updated));
+        Assert.Equal(legacy, ConversionCache.Find(folders, "77", old)); // the old naming in the cache is still found
+        Assert.Equal([legacy], ConversionCache.Legacy(cache.Path));
+        Assert.Empty(ConversionCache.Legacy(videos.Path));
+        Assert.Equal("we-77-20250102T030405", ConversionCache.TagOf(legacy));
+        Assert.Null(ConversionCache.TagOf("holiday.mp4"));
+        Assert.Equal("we-___x-20250102T030405", ConversionCache.Tag("../x", old));
+        Assert.Equal(80, ConversionCache.SafeTitle(new string('a', 200)).Length);
     }
 
     [Fact]

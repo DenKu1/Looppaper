@@ -25,7 +25,7 @@ public enum ControlState
 
     Pictures = 4,
 
-    /// <summary>The pictures change on a timer (slideshow mode).</summary>
+    /// <summary>The pictures (or several videos) change on a timer (slideshow mode).</summary>
     Slideshow = 8,
 
     /// <summary>Paused by <c>--pause</c> (or the tray icon) until <c>--resume</c>.</summary>
@@ -37,7 +37,7 @@ public enum ControlState
     /// <summary>Explorer's desktop is gone; waiting for it to come back.</summary>
     WaitingForDesktop = 64,
 
-    /// <summary>The command does not apply to what is shown (e.g. <c>--next</c> while a video plays).</summary>
+    /// <summary>The command does not apply to what is shown (e.g. <c>--next</c> with only one video).</summary>
     NotApplicable = 128,
 }
 
@@ -65,7 +65,8 @@ public readonly record struct ControlReply(ControlState State, PauseReason AutoP
             return "Waiting for the Windows desktop to come back (Explorer restarted)" + PauseSuffix() + ".";
         }
 
-        var shown = State.HasFlag(ControlState.Video) ? "Playing a video"
+        var shown = State.HasFlag(ControlState.Video) && State.HasFlag(ControlState.Slideshow) ? "Playing videos in turn"
+            : State.HasFlag(ControlState.Video) ? "Playing a video"
             : State.HasFlag(ControlState.Slideshow) ? "Showing a slideshow"
             : State.HasFlag(ControlState.Pictures) ? "Showing one picture"
             : "Running";
@@ -87,15 +88,17 @@ public readonly record struct ControlReply(ControlState State, PauseReason AutoP
             ControlCommand.Resume when IsPaused => "Resumed, but it is still paused automatically. " + state,
             ControlCommand.Resume => "Resumed. " + state,
             ControlCommand.Next or ControlCommand.Previous when State.HasFlag(ControlState.NotApplicable) =>
-                (State.HasFlag(ControlState.Video) ? "A video is the wallpaper, so there is no other picture to switch to. "
+                (State.HasFlag(ControlState.Video) ? "There is no other video to switch to (videos take turns in slideshow mode when there are several). "
                     : State.HasFlag(ControlState.Slideshow) ? "There is no other picture to switch to. "
                     : State.HasFlag(ControlState.Pictures) ? "Single-picture mode shows one picture, so there is nothing to switch to. "
                     : "Nothing to switch to right now. ") + state,
-            ControlCommand.Next => "Switching to the next picture. " + state,
-            ControlCommand.Previous => "Switching to the previous picture. " + state,
+            ControlCommand.Next => $"Switching to the next {Item}. " + state,
+            ControlCommand.Previous => $"Switching to the previous {Item}. " + state,
             _ => state,
         };
     }
+
+    private string Item => State.HasFlag(ControlState.Video) ? "video" : "picture";
 
     private string PauseSuffix()
     {
