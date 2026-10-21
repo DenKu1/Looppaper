@@ -122,6 +122,7 @@ Looppaper.exe [options]
   --check-update         Check GitHub once for a newer release and print the result (never downloads)
   --we-set <number|id>   Use that Wallpaper Engine wallpaper (number from --we-list, or Workshop id)
   --we-pick              Show the list and ask which Wallpaper Engine wallpaper to use
+  --we-convert <num|id>  Record a Wallpaper Engine scene / web wallpaper to a looping .mp4 (cached)
   --no-restart           With --we-set / --we-pick: only update config.json, don't restart Looppaper
   --help                 Show this help
 ```
@@ -200,6 +201,35 @@ To use one, run `Looppaper.exe --we-set <number or Workshop id>`, or `Looppaper.
 list and type a number. Looppaper writes `"video": { "enabled": true, "file": "<full path>" }` into
 `config.json` (your other settings are kept; comments in the file are not) and restarts a running Looppaper
 so the new wallpaper shows straight away. Add `--no-restart` to only change the config.
+
+### Scene and web wallpapers
+
+Scene and web wallpapers are rendered live by Wallpaper Engine, so Looppaper records them once into a
+looping `.mp4` and plays that. `--we-set` / `--we-pick` on such an item explains what will happen, with an
+estimate, and asks `Convert now? [y/N]`; `--we-convert <number|id>` only records it (without changing
+`config.json`). While recording, Wallpaper Engine plays the wallpaper in a window of its own that is moved
+off-screen (your desktop wallpaper is not changed; on PCs that don't render off-screen windows it is moved
+on-screen for the recording), and ffmpeg records that window with its `gfxcapture` source:
+
+- Length: if the scene's timeline animations loop (or a web page is built around one looping video), exactly
+  one loop is recorded; otherwise 30 seconds whose end is crossfaded into the start so it loops seamlessly.
+- Picture: your primary monitor's resolution at up to 30 fps; a scene with a different aspect ratio is
+  rendered whole and cropped at the alignment position you set in Wallpaper Engine.
+- Encoder: the first hardware encoder that works (NVIDIA NVENC, AMD AMF, Intel QSV), else the CPU (x264),
+  at a bitrate that keeps the file under 100 MB.
+- Result: `%LOCALAPPDATA%\Looppaper\cache\we-<Workshop id>-<modified time>.mp4`. When the Workshop item is
+  updated it is recorded again; deleting the cache folder is always safe. Ctrl+C cancels and saves nothing.
+
+Application wallpapers are programs, not media, and are listed as unsupported.
+
+Requirements:
+
+- Wallpaper Engine installed (for scene and web wallpapers; video wallpapers only need the files).
+- ffmpeg 8 or newer for converting: `winget install Gyan.FFmpeg` (or set `ffmpegPath`). ffmpeg is never
+  bundled with Looppaper.
+
+The conversion is a port of [wp2video](https://github.com/unio207/wp2video) (MIT License); see
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## Logs
 

@@ -29,6 +29,7 @@ public sealed class CommandLineOptions
           --check-update         Check GitHub once for a newer release and print the result (never downloads)
           --we-set <number|id>   Use that Wallpaper Engine wallpaper (number from --we-list, or Workshop id)
           --we-pick              Show the list and ask which Wallpaper Engine wallpaper to use
+          --we-convert <num|id>  Record a Wallpaper Engine scene / web wallpaper to a looping .mp4 (cached)
           --no-restart           With --we-set / --we-pick: only update config.json, don't restart Looppaper
           --help                 Show this help
 
@@ -76,6 +77,9 @@ public sealed class CommandLineOptions
     /// <summary>Interactive Wallpaper Engine picker.</summary>
     public bool WePick { get; set; }
 
+    /// <summary>List number or Workshop id of a scene / web item to convert to a video.</summary>
+    public string? WeConvert { get; set; }
+
     /// <summary>After choosing a Wallpaper Engine item, don't restart a running Looppaper.</summary>
     public bool NoRestart { get; set; }
 
@@ -88,7 +92,7 @@ public sealed class CommandLineOptions
     public bool IsCommand => Help || Stop || InstallStartup || UninstallStartup || IsWallpaperEngineCommand || Compress is not null || CheckUpdate;
 
     /// <summary>True for the Wallpaper Engine library commands (<c>--we-*</c>).</summary>
-    public bool IsWallpaperEngineCommand => WeList || WeSet is not null || WePick;
+    public bool IsWallpaperEngineCommand => WeList || WeSet is not null || WePick || WeConvert is not null;
 
     public void ApplyTo(LooppaperConfig config)
     {

@@ -66,14 +66,14 @@ Engine itself is needed for converting scene wallpapers.
       prompts for a number. Updates `config.json` and restarts a running Looppaper.
 - [ ] 8.4 Video items: use the `.mp4` directly when it is within the 100 MB limit; larger ones go through
       Epic 9 (oversized video compression).
-- [ ] 8.5 Scene (and web) items: convert to a looping `.mp4` before playing, porting the approach of
+- [x] 8.5 Scene (and web) items: convert to a looping `.mp4` before playing, porting the approach of
       [unio207/wp2video](https://github.com/unio207/wp2video) (MIT): run `wallpaper64.exe -control openWallpaper
       -playInWindow`, move the window off-screen, record it with ffmpeg 8+ `gfxcapture`, loop length from
       `scene.json` / `scene.pkg`, optional seamless crossfade, hardware encoder probing (NVENC / AMF / QSV, CPU
       fallback), output under 100 MB, cached by Workshop id + modified time in `%LOCALAPPDATA%\Looppaper\cache`.
       Needs Wallpaper Engine installed and ffmpeg 8+ (PATH, winget or a config path); ffmpeg is never committed
       or bundled. Application wallpapers are listed as unsupported.
-- [ ] 8.6 Credit: `THIRD-PARTY-NOTICES.md` with wp2video's full MIT license text and a link, referenced from the
+- [x] 8.6 Credit: `THIRD-PARTY-NOTICES.md` with wp2video's full MIT license text and a link, referenced from the
       README, added together with the first ported code.
 
 ## Epic 9 — Oversized video compression
