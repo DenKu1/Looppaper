@@ -1,6 +1,6 @@
 # Looppaper roadmap
 
-Looppaper is a lightweight live-wallpaper engine for Windows with no UI: it draws pictures
+Looppaper is a lightweight live-wallpaper app for Windows with no UI: it draws pictures
 or a looping video behind the desktop icons, and is configured through `config.json`
 and command-line switches.
 

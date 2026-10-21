@@ -111,11 +111,11 @@ public class WorkshopLibraryTests
     [Fact]
     public void SelectByNumberOrId()
     {
-        var items = new[] { Fake(1, "2530355779"), Fake(2, "3"), Fake(3, "77") };
+        var items = new[] { Fake(1, "1234567890"), Fake(2, "3"), Fake(3, "77") };
 
-        Assert.Equal("2530355779", WorkshopLibrary.Select(items, "1")?.Id);
+        Assert.Equal("1234567890", WorkshopLibrary.Select(items, "1")?.Id);
         Assert.Equal("3", WorkshopLibrary.Select(items, " 3 ")?.Id); // an id wins over a number
-        Assert.Equal("2530355779", WorkshopLibrary.Select(items, "2530355779")?.Id);
+        Assert.Equal("1234567890", WorkshopLibrary.Select(items, "1234567890")?.Id);
         Assert.Equal("77", WorkshopLibrary.Select(items, "77")?.Id);
         Assert.Null(WorkshopLibrary.Select(items, "4"));
         Assert.Null(WorkshopLibrary.Select(items, "0"));
@@ -128,7 +128,7 @@ public class WorkshopLibraryTests
     {
         var items = new[]
         {
-            Fake(1, "2530355779", "Astronaut", 8_500_000, WorkshopItemStatus.NeedsConversion),
+            Fake(1, "1234567890", "Night city", 8_500_000, WorkshopItemStatus.NeedsConversion),
             Fake(10, "42", "Floating In Space", 218 * Mb, WorkshopItemStatus.Ready, WorkshopItemType.Video),
         };
 
@@ -136,7 +136,7 @@ public class WorkshopLibraryTests
 
         Assert.Equal(3, lines.Count);
         Assert.Equal(" #  Workshop id  Type       Size  Status            Title", lines[0]);
-        Assert.Equal(" 1  2530355779   scene    8.1 MB  needs conversion  Astronaut", lines[1]);
+        Assert.Equal(" 1  1234567890   scene    8.1 MB  needs conversion  Night city", lines[1]);
         Assert.Equal("10  42           video  218.0 MB  ready             Floating In Space", lines[2]);
     }
 

@@ -292,10 +292,10 @@ public class SceneConversionTests
     [Fact]
     public void ParsesWeConvert()
     {
-        var options = CommandLineParser.Parse(["--we-convert=2530355779"]);
+        var options = CommandLineParser.Parse(["--we-convert=1234567890"]);
 
         Assert.Empty(options.Errors);
-        Assert.Equal("2530355779", options.WeConvert);
+        Assert.Equal("1234567890", options.WeConvert);
         Assert.True(options.IsWallpaperEngineCommand);
         Assert.NotEmpty(CommandLineParser.Parse(["--we-convert", "1", "--we-set", "1"]).Errors);
     }

@@ -1,6 +1,6 @@
 # Looppaper
 
-A lightweight live-wallpaper engine for Windows 10/11 with no UI. Looppaper puts a looping `.mp4`
+A lightweight live-wallpaper app for Windows 10/11 with no UI. Looppaper puts a looping `.mp4`
 video, one fixed picture, or a slideshow of pictures from a folder behind your desktop icons.
 Everything is configured with a JSON file and command-line switches.
 
@@ -303,9 +303,13 @@ PATH and in scoop and Chocolatey installs.
 
 ## Wallpaper Engine wallpapers
 
+> Looppaper is an independent project. It is not affiliated with, endorsed by or supported by Wallpaper Engine,
+> its developers, Valve or Steam.
+
 If you own [Wallpaper Engine](https://store.steampowered.com/app/431960/Wallpaper_Engine/), Looppaper can
 use the wallpapers you subscribed to in its Steam Workshop. Looppaper only reads the Workshop downloads
-already on your PC; it never downloads, uploads or redistributes Workshop content.
+already on your PC; it never downloads, uploads or redistributes Workshop content. Workshop wallpapers belong
+to their creators, and videos Looppaper converts from them are for your own personal use only.
 
 The Workshop folder is found through Steam (`HKCU\Software\Valve\Steam` and every library in
 `steamapps\libraryfolders.vdf`, then `steamapps\workshop\content\431960`). If yours is somewhere else, set
@@ -315,8 +319,8 @@ The Workshop folder is found through Steam (`HKCU\Software\Valve\Steam` and ever
 ```
 Looppaper.exe --we-list
  #  Workshop id  Type       Size  Status            Title
- 1  2530355779   scene    8.5 MB  needs conversion  Astronaut
- 2  3592016945   scene   21.5 MB  needs conversion  Mystery wizard
+ 1  1234567890   scene    8.5 MB  needs conversion  Night city
+ 2  1987654321   scene   21.5 MB  needs conversion  Ocean waves
 ```
 
 The list is sorted by type (video, scene, web, application), then title, so the numbers stay the same
@@ -469,4 +473,4 @@ security problem privately, see [SECURITY.md](SECURITY.md).
 Looppaper is released under the [MIT License](LICENSE). The Wallpaper Engine scene conversion is ported from
 [wp2video](https://github.com/unio207/wp2video) (MIT); see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 Looppaper is not affiliated with Wallpaper Engine, Valve or Steam, and never downloads or redistributes
-Workshop content.
+Workshop content. Wallpaper Engine is a trademark of its respective owner.

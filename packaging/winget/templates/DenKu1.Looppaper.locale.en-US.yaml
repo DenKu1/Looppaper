@@ -12,7 +12,7 @@ PackageName: Looppaper
 PackageUrl: https://github.com/DenKu1/Looppaper
 License: MIT
 LicenseUrl: https://github.com/DenKu1/Looppaper/blob/main/LICENSE
-ShortDescription: Lightweight live-wallpaper engine for Windows with no UI (looping video or picture slideshow).
+ShortDescription: Lightweight live-wallpaper app for Windows with no UI (looping video or picture slideshow).
 Description: |-
   Looppaper puts a looping .mp4 video, one fixed picture, or a slideshow of pictures from a folder behind
   the desktop icons. It has no settings window: it is configured with a JSON file and command-line switches,
