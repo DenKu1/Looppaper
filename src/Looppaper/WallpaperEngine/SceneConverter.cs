@@ -91,7 +91,7 @@ internal sealed class SceneConverter
     private async Task<(int Fps, string Encoder, long Bitrate)> RecordAsync(
         WorkshopItem item, CapturePlan plan, CaptureGeometry geometry, string recording, IProgress<FfmpegProgress> progress, CancellationToken cancellationToken)
     {
-        EnsureWallpaperEngineRunning();
+        var startedAt = EnsureWallpaperEngineRunning();
         var title = $"looppaper-{Environment.ProcessId}";
         var offScreenX = User32.GetSystemMetrics(User32.SM_XVIRTUALSCREEN) - geometry.RenderWidth - 100;
 
@@ -175,6 +175,10 @@ internal sealed class SceneConverter
             }
 
             Kernel32.SetThreadExecutionState(Kernel32.ES_CONTINUOUS);
+            if (startedAt is { } started)
+            {
+                StopWallpaperEngine(started);
+            }
         }
     }
 
@@ -225,7 +229,8 @@ internal sealed class SceneConverter
         User32.SetWindowPos(hwnd, IntPtr.Zero, x, y, rect.Width, rect.Height, User32.SWP_NOZORDER | User32.SWP_NOACTIVATE | User32.SWP_NOSENDCHANGING);
     }
 
-    private void EnsureWallpaperEngineRunning()
+    /// <summary>Starts Wallpaper Engine if it isn't running. Returns when we started it, or null if it was already running.</summary>
+    private DateTime? EnsureWallpaperEngineRunning()
     {
         var running = Process.GetProcessesByName("wallpaper64");
         var isRunning = running.Length > 0;
@@ -236,15 +241,43 @@ internal sealed class SceneConverter
 
         if (isRunning)
         {
-            return;
+            return null;
         }
 
         _status("Starting Wallpaper Engine...");
+        var startedAt = DateTime.Now.AddSeconds(-1);
         using (Process.Start(new ProcessStartInfo(_wallpaperExe) { UseShellExecute = false }))
         {
         }
 
         Thread.Sleep(8000);
+        return startedAt;
+    }
+
+    /// <summary>Closes the Wallpaper Engine we started for the recording, so it is left as the user had it (not running).</summary>
+    private void StopWallpaperEngine(DateTime startedAt)
+    {
+        foreach (var process in Process.GetProcessesByName("wallpaper64"))
+        {
+            using (process)
+            {
+                try
+                {
+                    if (process.StartTime < startedAt)
+                    {
+                        continue; // the user started this one meanwhile
+                    }
+
+                    process.Kill(entireProcessTree: true);
+                    process.WaitForExit(5000);
+                    _log.Info("Closed the Wallpaper Engine instance started for the conversion");
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+                {
+                    _log.Warn($"Closing Wallpaper Engine failed: {ex.Message}");
+                }
+            }
+        }
     }
 
     private void RunWallpaperEngine(params string[] arguments)
