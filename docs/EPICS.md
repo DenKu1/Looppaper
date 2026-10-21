@@ -184,8 +184,8 @@ Public since 2026-10-21.
       turned on (done with 11.7).
 - [ ] 11.6 Turn on what public visibility makes possible: free CI minutes, the update check (`--check-update`
       can see public releases), winget submission (6.2), optional free code signing (e.g. SignPath for open source).
-      Done: private vulnerability reporting is on, and CI runs on the free public minutes. Still open: cut the first
-      release (tag `vX.Y.Z`), which the update check and the winget submission both need; applying for free signing.
+      Done: private vulnerability reporting is on, CI runs on the free public minutes, and v0.2.0 is released (the
+      update check sees it; the winget manifest validates). Still open: submitting to winget-pkgs; applying for free signing.
 - [x] 11.7 Switch the repository to public. Done by the owner, or by an assistant only with the owner's explicit
       go-ahead; always the last step. Switched on 2026-10-21 with the owner's go-ahead.
 ## Won't do (for now)
