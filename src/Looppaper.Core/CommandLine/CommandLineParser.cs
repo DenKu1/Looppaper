@@ -143,6 +143,23 @@ public static class CommandLineParser
                     NoValue();
                     SetControl(ControlCommand.Status);
                     break;
+                case "tray-icon":
+                    var trayText = TakeValue();
+                    if (trayText is not null)
+                    {
+                        options.SetTrayIcon = trayText.Trim().ToLowerInvariant() switch
+                        {
+                            "on" or "true" or "yes" or "1" => true,
+                            "off" or "false" or "no" or "0" => false,
+                            _ => null,
+                        };
+                        if (options.SetTrayIcon is null)
+                        {
+                            options.Errors.Add($"'--tray-icon' expects on or off, got '{trayText}'.");
+                        }
+                    }
+
+                    break;
                 case "install-startup":
                     NoValue();
                     options.InstallStartup = true;

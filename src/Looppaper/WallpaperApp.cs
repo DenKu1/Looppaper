@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using Looppaper.Core;
 using Looppaper.Core.Compression;
 using Looppaper.Core.Configuration;
 using Looppaper.Core.Control;
@@ -61,6 +63,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     private readonly FrameCache _frame = new();
     private ControlWindow? _control;
     private PowerWatcher? _power;
+    private TrayIcon? _tray;
     private FileChangeWatcher? _configWatcher;
     private FileChangeWatcher? _collectionWatcher;
     private WallpaperWindow? _window;
@@ -100,6 +103,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         _power.Changed += (_, _) => SyncPauseSettings();
         _power.Resumed += RestartVideoAfterSleep;
         SyncPauseSettings();
+        SyncTrayIcon();
 
         var configFolder = Path.GetDirectoryName(_configPath);
         if (configFolder is not null)
@@ -155,6 +159,11 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
 
     public void OnTaskbarCreated()
     {
+        if (!_shutDown)
+        {
+            _tray?.Add(); // the new notification area starts empty
+        }
+
         if (_recovering || _shutDown)
         {
             return;
@@ -178,6 +187,9 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
                 return true;
             case WM_WALLPAPER_LOST:
                 BeginRecovery("the wallpaper window was destroyed");
+                return true;
+            case TrayIcon.WM_TRAY:
+                OnTrayMessage((uint)lParam & 0xFFFF);
                 return true;
             case User32.WM_TIMER when (nuint)wParam == RecoverTimerId:
                 Recover();
@@ -285,6 +297,102 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         return new ControlReply(state, _pause.Reasons & ~PauseReason.User);
     }
 
+    /// <summary>Shows or removes the tray icon to match <c>trayIcon</c> (at start and after the config was reloaded).</summary>
+    private void SyncTrayIcon()
+    {
+        if (_config.TrayIcon && _tray is null)
+        {
+            _tray = new TrayIcon(_control!.Handle, _log);
+            _log.Info("Tray icon shown");
+            RefreshTray();
+        }
+        else if (!_config.TrayIcon && _tray is not null)
+        {
+            _tray.Dispose();
+            _tray = null;
+            _log.Info("Tray icon removed");
+        }
+    }
+
+    private void RefreshTray()
+    {
+        if (_tray is not null)
+        {
+            var state = CurrentState();
+            _tray.Update("Looppaper: " + state.Describe(), state.IsPaused);
+        }
+    }
+
+    private void OnTrayMessage(uint mouseMessage)
+    {
+        if (_tray is null || _shutDown)
+        {
+            return;
+        }
+
+        switch (mouseMessage)
+        {
+            case User32.WM_MOUSEMOVE:
+                RefreshTray(); // the tooltip is about to show
+                break;
+            case User32.WM_LBUTTONUP or User32.WM_RBUTTONUP:
+                RunTrayAction(_tray.ShowMenu(CurrentState()));
+                break;
+        }
+    }
+
+    private void RunTrayAction(TrayAction action)
+    {
+        switch (action)
+        {
+            case TrayAction.Next or TrayAction.Previous:
+                _pictures?.Step(backwards: action == TrayAction.Previous);
+                break;
+            case TrayAction.Pause or TrayAction.Resume:
+                SetPausedByUser(action == TrayAction.Pause, "tray icon");
+                break;
+            case TrayAction.OpenCollection:
+                var folder = _config.ResolveCollectionFolder();
+                Open(folder, create: true);
+                break;
+            case TrayAction.EditConfig:
+                Open(_configPath, editor: true);
+                break;
+            case TrayAction.OpenLog:
+                Open(AppPaths.LogFile, editor: true);
+                break;
+            case TrayAction.Stop:
+                RequestStop();
+                break;
+        }
+    }
+
+    /// <summary>Opens a folder in Explorer, or a file with its default app (Notepad when there is none).</summary>
+    private void Open(string path, bool editor = false, bool create = false)
+    {
+        try
+        {
+            if (create)
+            {
+                Directory.CreateDirectory(path);
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose();
+            }
+            catch (System.ComponentModel.Win32Exception) when (editor)
+            {
+                // No app is associated with the file type (.json, .log).
+                Process.Start(new ProcessStartInfo("notepad.exe") { ArgumentList = { path }, UseShellExecute = false })?.Dispose();
+            }
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            _log.Warn($"Opening {path} failed: {ex.Message}");
+        }
+    }
+
     /// <summary>True when our window still lives in the current Explorer desktop.</summary>
     private bool IsAttached() =>
         _window is { IsAlive: true } && _host is { IsAlive: true } host && host.Progman == User32.FindWindow("Progman", null);
@@ -345,6 +453,8 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         {
             StartPictures();
         }
+
+        RefreshTray();
     }
 
     /// <summary>Monitors were added, removed or rearranged, or the resolution or DPI changed: rebuild for the new layout.</summary>
@@ -439,6 +549,21 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
             return;
         }
 
+        if (fresh.TrayIcon != _config.TrayIcon)
+        {
+            var trayIcon = _config.TrayIcon;
+            _config.TrayIcon = fresh.TrayIcon;
+            var onlyTray = ConfigLoader.Serialize(fresh) == ConfigLoader.Serialize(_config);
+            _config.TrayIcon = trayIcon;
+            if (onlyTray)
+            {
+                // Only the tray icon changed: no need to restart the video or the slideshow.
+                _config = fresh;
+                SyncTrayIcon();
+                return;
+            }
+        }
+
         var folderChanged = !string.Equals(fresh.ResolveCollectionFolder(), _config.ResolveCollectionFolder(), StringComparison.OrdinalIgnoreCase);
         _log.Info($"Config reloaded: collection {fresh.ResolveCollectionFolder()}, mode {fresh.Mode}, interval {fresh.IntervalSeconds}s, scaling {fresh.Scaling}, video {(fresh.Video.Enabled ? "on" : "off")}");
         _config = fresh;
@@ -451,6 +576,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         }
 
         SyncPauseSettings();
+        SyncTrayIcon();
         if (_recovering)
         {
             return; // the new settings apply once the desktop is back
@@ -515,6 +641,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         _log.Info($"Wallpaper {_pause}");
         _video?.ApplyPause(_pause);
         _pictures?.SetPaused(_pause.IsPausedEverywhere(Monitors.RelativeToVirtualScreen().ToList()));
+        RefreshTray();
     }
 
     private void StopContent()
@@ -685,6 +812,8 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         }
 
         _power?.Dispose();
+        _tray?.Dispose();
+        _tray = null;
         _configWatcher?.Dispose();
         _collectionWatcher?.Dispose();
         StopContent();

@@ -166,6 +166,25 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void TrayIcon_IsOnByDefaultAndWritten()
+    {
+        var config = new LooppaperConfig();
+
+        Assert.True(config.TrayIcon);
+        Assert.Contains("\"trayIcon\": true", ConfigLoader.Serialize(config), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Parse_ReadsTrayIcon()
+    {
+        var log = new MemoryLog();
+
+        Assert.False(ConfigLoader.Parse("""{ "trayIcon": false }""", log).TrayIcon);
+        Assert.True(ConfigLoader.Parse("""{ "TrayIcon": 0 }""", log).TrayIcon);
+        Assert.Single(log.Warnings);
+    }
+
+    [Fact]
     public void LoadOrCreate_DoesNotOverwriteBrokenFile()
     {
         using var dir = new TempDir();

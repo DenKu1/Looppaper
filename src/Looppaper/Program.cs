@@ -63,6 +63,11 @@ internal static class Program
         }
 
         var configPath = options.ConfigPath is null ? AppPaths.DefaultConfigFile : AppPaths.ExpandPath(options.ConfigPath);
+        if (options.SetTrayIcon is { } showTray)
+        {
+            return SetTrayIcon(configPath, showTray, log);
+        }
+
         var config = ConfigLoader.LoadOrCreate(configPath, log);
         options.ApplyTo(config);
         ConfigValidator.Normalize(config, log);
@@ -215,6 +220,17 @@ internal static class Program
         var result = UpdateCheck.Run(log);
         ConsoleOutput.WriteLine(result.Message);
         return result.Status == UpdateStatus.Failed ? 1 : 0;
+    }
+
+    private static int SetTrayIcon(string configPath, bool show, ILog log)
+    {
+        var error = ConfigEditor.SetTrayIcon(configPath, show);
+        var message = error is null
+            ? $"Tray icon {(show ? "on" : "off")} (saved in {configPath}); a running Looppaper {(show ? "shows" : "hides")} it straight away."
+            : $"Changing the tray icon setting failed: {error}";
+        log.Info($"--tray-icon: {message}");
+        ConsoleOutput.WriteLine(message);
+        return error is null ? 0 : 1;
     }
 
     private static int SendControl(ControlCommand command, ILog log)

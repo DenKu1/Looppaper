@@ -215,6 +215,13 @@ public static class ConfigLoader
                     }
 
                     break;
+                case "trayicon":
+                    if (ReadBool(value, name, log, out var trayIcon))
+                    {
+                        config.TrayIcon = trayIcon;
+                    }
+
+                    break;
                 case "ffmpegpath":
                     if (ReadString(value, name, log, allowNull: true, out var ffmpeg))
                     {

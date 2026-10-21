@@ -66,6 +66,9 @@ public sealed class LooppaperConfig
     /// </summary>
     public bool Watchdog { get; set; } = true;
 
+    /// <summary>Show a notification-area icon with a small menu (next / previous picture, pause, open folders, stop). On by default; the installer asks.</summary>
+    public bool TrayIcon { get; set; } = true;
+
     public VideoConfig Video { get; set; } = new();
 
     /// <summary>When to pause the video and the slideshow because nobody can see them (Epic 2).</summary>

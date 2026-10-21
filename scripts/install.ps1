@@ -16,6 +16,9 @@
     On its first start Looppaper copies settings, cached videos and the pictures/videos of the
     Pictures\Looppaper folder from the standard folders (the originals are kept).
 
+    Without -TrayIcon it also asks whether to show the Looppaper icon in the notification area
+    (a menu to switch pictures, pause, open the folders and stop Looppaper); the default is yes.
+
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\install.ps1
 
@@ -31,6 +34,10 @@ param(
     # Leave it out to be asked.
     [ValidateSet('Standard', 'Portable')]
     [string]$Layout,
+
+    # On (default): show the notification-area icon. Off: no icon (commands such as --pause still work). Leave it out to be asked.
+    [ValidateSet('On', 'Off')]
+    [string]$TrayIcon,
 
     # Where Looppaper.exe goes (and, in the portable layout, all of its files).
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'Programs\Looppaper')
@@ -63,6 +70,18 @@ if (-not $Layout) {
     $Layout = if ("$answer".Trim() -eq '2') { 'Portable' } else { 'Standard' }
 }
 
+if (-not $TrayIcon) {
+    Write-Host 'Show the Looppaper icon in the notification area? It has a menu to switch pictures, pause,'
+    Write-Host 'open the folders and stop Looppaper. Without it everything still works from the command line.'
+    $answer = $null
+    try {
+        $answer = Read-Host 'Show the tray icon? [Y/n]'
+    } catch {
+        # Not interactive: use the default.
+    }
+    $TrayIcon = if ("$answer".Trim() -match '^(n|no)$') { 'Off' } else { 'On' }
+}
+
 $exe = Join-Path $InstallDir 'Looppaper.exe'
 $marker = Join-Path $InstallDir 'looppaper.portable'
 
@@ -91,6 +110,12 @@ if ($Layout -eq 'Portable') {
 
 New-Item -ItemType Directory -Force -Path $collection | Out-Null
 Write-Host "Collection folder: $collection (put .jpg/.jpeg/.png pictures or .mp4 videos here)"
+
+$p = Start-Process -FilePath $exe -ArgumentList '--tray-icon', $TrayIcon.ToLowerInvariant() -Wait -PassThru -WindowStyle Hidden
+if ($p.ExitCode -ne 0) {
+    throw "Saving the tray icon setting failed (exit code $($p.ExitCode)). See $logs"
+}
+Write-Host "Tray icon: $($TrayIcon.ToLowerInvariant()) (change it later with: Looppaper.exe --tray-icon on|off)"
 
 $p = Start-Process -FilePath $exe -ArgumentList '--install-startup' -Wait -PassThru -WindowStyle Hidden
 if ($p.ExitCode -ne 0) {

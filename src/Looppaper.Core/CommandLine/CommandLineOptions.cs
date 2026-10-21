@@ -29,6 +29,7 @@ public sealed class CommandLineOptions
           --next                 Show the next slideshow picture now
           --previous             Go back to the previous slideshow picture
           --status               Show what the running wallpaper is doing
+          --tray-icon <on|off>   Show or hide the notification-area icon (saved in config.json)
           --install-startup      Start Looppaper when you sign in (current user)
           --uninstall-startup    Remove Looppaper from sign-in startup
           --we-list              List the Wallpaper Engine Workshop wallpapers downloaded on this PC
@@ -70,6 +71,9 @@ public sealed class CommandLineOptions
     /// <summary>Command for the running instance (<c>--pause</c>, <c>--resume</c>, <c>--status</c>, ...).</summary>
     public ControlCommand? Control { get; set; }
 
+    /// <summary>Turn the tray icon on or off in config.json (<c>--tray-icon on|off</c>).</summary>
+    public bool? SetTrayIcon { get; set; }
+
     public bool InstallStartup { get; set; }
 
     public bool UninstallStartup { get; set; }
@@ -105,7 +109,7 @@ public sealed class CommandLineOptions
     public List<string> Errors { get; } = [];
 
     /// <summary>True when the invocation performs a command and exits instead of running the wallpaper.</summary>
-    public bool IsCommand => WatchdogFor is not null || Help || Stop || Control is not null ||InstallStartup || UninstallStartup || IsWallpaperEngineCommand || Compress is not null || CheckUpdate;
+    public bool IsCommand => WatchdogFor is not null || Help || Stop || Control is not null || SetTrayIcon is not null || InstallStartup || UninstallStartup || IsWallpaperEngineCommand || Compress is not null || CheckUpdate;
 
     /// <summary>True for the Wallpaper Engine library commands (<c>--we-*</c>).</summary>
     public bool IsWallpaperEngineCommand => WeList || WeSet is not null || WePick || WeConvert is not null;

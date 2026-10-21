@@ -90,4 +90,58 @@ public class ConfigEditorTests
         Assert.NotEmpty(both.Errors);
         Assert.NotEmpty(missing.Errors);
     }
+
+    [Fact]
+    public void SetTrayIconKeepsEveryOtherValueAndTheKeySpelling()
+    {
+        const string json = """{ "intervalSeconds": 60, "TrayIcon": true, "video": { "volume": 30 } }""";
+
+        var text = ConfigEditor.SetTrayIconInText(json, show: false);
+        var config = ConfigLoader.Parse(text, new MemoryLog());
+
+        Assert.False(config.TrayIcon);
+        Assert.Equal(60, config.IntervalSeconds);
+        Assert.Equal(30, config.Video.Volume);
+        Assert.Contains("\"TrayIcon\": false", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SetTrayIconAddsTheFieldAndCreatesTheFile()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "looppaper-tests-" + Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(dir, "config.json");
+        try
+        {
+            Assert.Null(ConfigEditor.SetTrayIcon(path, show: false));
+            Assert.False(ConfigLoader.Parse(File.ReadAllText(path), new MemoryLog()).TrayIcon);
+
+            Assert.Null(ConfigEditor.SetTrayIcon(path, show: true));
+            Assert.True(ConfigLoader.Parse(File.ReadAllText(path), new MemoryLog()).TrayIcon);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("on", true)]
+    [InlineData("OFF", false)]
+    [InlineData("yes", true)]
+    [InlineData("0", false)]
+    public void ParserReadsTrayIcon(string value, bool expected)
+    {
+        var options = CommandLineParser.Parse(["--tray-icon", value]);
+
+        Assert.Empty(options.Errors);
+        Assert.Equal(expected, options.SetTrayIcon);
+        Assert.True(options.IsCommand);
+    }
+
+    [Fact]
+    public void ParserRejectsOtherTrayIconValues()
+    {
+        Assert.NotEmpty(CommandLineParser.Parse(["--tray-icon", "maybe"]).Errors);
+        Assert.NotEmpty(CommandLineParser.Parse(["--tray-icon"]).Errors);
+    }
 }
