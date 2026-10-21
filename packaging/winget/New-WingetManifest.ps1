@@ -9,7 +9,7 @@
 
     The SHA-256 comes from -Sha256, from a local zip (-ZipPath), or by downloading the release's
     .sha256 file from the installer URL. winget itself downloads the installer from InstallerUrl, so the
-    release asset must be publicly downloadable: this cannot work while the repository is private.
+    release asset must be publicly downloadable (a published release of this public repository).
 
     This script only writes files. It never submits anything to microsoft/winget-pkgs; to publish, open a
     pull request there yourself (for example with "wingetcreate submit <folder>") once the repository is public.

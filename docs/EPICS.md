@@ -161,7 +161,7 @@ registered window message to its hidden control window and print what it is doin
 
 ## Epic 11 — Make the repository public
 
-In progress. The repository stays private until 11.7.
+Public since 2026-10-21.
 
 - [x] 11.1 Choose and add a LICENSE for Looppaper (the owner decides; MIT is the simple option and is compatible
       with the wp2video-derived code). Update the winget manifest's `License` field to match. MIT, with
@@ -176,16 +176,18 @@ In progress. The repository stays private until 11.7.
       no Workshop assets in the repo or the release zip. wp2video's LICENSE is MIT (matches the copied text) and
       the three ported files carry a header; the release zip and the CI artifact now include `LICENSE` and
       `THIRD-PARTY-NOTICES.md`.
-- [ ] 11.4 README for outside users: what it is, requirements (Windows 10/11; ffmpeg for conversion and
+- [x] 11.4 README for outside users: what it is, requirements (Windows 10/11; ffmpeg for conversion and
       compression; Wallpaper Engine for scenes), install, usage, screenshots / GIF, known limitations.
-      Done except the screenshot / GIF.
+      No screenshot / GIF (the owner's choice).
 - [x] 11.5 `CONTRIBUTING.md`, issue and pull-request templates, `SECURITY.md`, optional code of conduct.
       No code of conduct for now. `SECURITY.md` points to GitHub private vulnerability reporting, which has to be
-      turned on in the repository settings (11.6).
+      turned on (done with 11.7).
 - [ ] 11.6 Turn on what public visibility makes possible: free CI minutes, the update check (`--check-update`
       can see public releases), winget submission (6.2), optional free code signing (e.g. SignPath for open source).
-- [ ] 11.7 Switch the repository to public. Done by the owner, or by an assistant only with the owner's explicit
-      go-ahead; always the last step.
+      Done: private vulnerability reporting is on, and CI runs on the free public minutes. Still open: cut the first
+      release (tag `vX.Y.Z`), which the update check and the winget submission both need; applying for free signing.
+- [x] 11.7 Switch the repository to public. Done by the owner, or by an assistant only with the owner's explicit
+      go-ahead; always the last step. Switched on 2026-10-21 with the owner's go-ahead.
 ## Won't do (for now)
 
 Parked; kept here so the ideas are not lost.

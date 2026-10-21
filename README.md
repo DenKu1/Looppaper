@@ -385,8 +385,8 @@ compared semantically (`v0.10.0` > `v0.9.0`, `0.2.0-beta.1` < `0.2.0`); pre-rele
 to someone already running a pre-release. Nothing is downloaded or installed: get the new zip from the
 release page and run its `install.ps1` again.
 
-The check is anonymous, so it cannot see the releases of a private repository: GitHub answers 404 and
-Looppaper reports "No public releases found" (not an error). It works once the repository is public.
+The check is anonymous and only sees published releases: until the first release exists GitHub answers 404 and
+Looppaper reports "No public releases found" (not an error).
 
 ### Cutting a release
 
@@ -440,9 +440,8 @@ It takes the SHA-256 from the release's `.sha256` file (or `-ZipPath` / `-Sha256
 `winget validate`. Nothing is submitted: publishing means opening a pull request on
 [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) yourself (e.g. `wingetcreate submit <folder>`).
 
-> **winget needs a publicly downloadable installer URL.** While this repository is private its release
-> assets cannot be downloaded anonymously, so the winget package cannot work (and the script cannot
-> fetch the `.sha256`) until the repository, or at least its releases, are public.
+> **winget needs a publicly downloadable installer URL**, so the manifest can only be made once a release
+> with its zip and `.sha256` is published.
 
 A winget install does not run `install.ps1`: run `looppaper --install-startup` once to start it at sign-in,
 and `looppaper --stop` then `looppaper --uninstall-startup` before `winget uninstall DenKu1.Looppaper`.
