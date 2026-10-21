@@ -81,12 +81,12 @@ in the log); a file that is not valid JSON is ignored and the defaults are used.
   "backgroundColor": "#000000", // shown around "fit"/"center" pictures and when there is nothing to show
   "maxPictureSizeMb": 50,       // larger pictures are skipped (cap 200)
   "checkForUpdates": false,     // true = check GitHub once at start for a newer release and log it (never downloads)
-  "ffmpegPath": null,          // ffmpeg.exe or its folder; null = search PATH, winget, scoop, Chocolatey (only needed for conversion)
+  "ffmpegPath": null,          // ffmpeg.exe or its folder; null = search PATH, winget, scoop, Chocolatey (only needed for conversion and compression)
   "video": {
     "enabled": true,            // false = always show pictures
     "file": null,               // file name in the collection, or a full path; null = first .mp4 in the collection
     "volume": 0,                // 0..100; 0 = muted
-    "maxFileSizeMb": 100        // larger videos are refused (logged) and pictures are shown; 100 is also the maximum
+    "maxFileSizeMb": 100        // larger videos are not played; Looppaper offers to compress them (see "Large videos"); 100 is also the maximum
   },
   "wallpaperEngine": {
     "workshopPath": null,       // Wallpaper Engine Workshop folder (...\\steamapps\\workshop\\content\\431960); null = found through Steam
@@ -114,6 +114,7 @@ Looppaper.exe [options]
   --video <file>         Play this .mp4 looped as the wallpaper (file name in the collection or full path)
   --no-video             Show pictures even if the collection has a video
   --volume <0-100>       Video volume (0 = muted)
+  --compress <file>      Compress a video above the 100 MB limit (asks first; needs ffmpeg)
   --stop                 Stop the running instance and restore the wallpaper
   --install-startup      Start Looppaper when you sign in (current user)
   --uninstall-startup    Remove Looppaper from sign-in startup
@@ -128,6 +129,43 @@ Looppaper.exe [options]
 Command-line options override the config file for that run only; the file is not changed.
 
 Commands such as `--help` and `--stop` print their result in the terminal you run them from. Starting the wallpaper from a terminal hands it to a background copy and returns straight away, so you can close the terminal. Started from Explorer or at sign-in no console window appears (Windows 11 24H2 and later; older Windows may flash a console window for a moment).
+
+## Large videos
+
+Videos are limited to 100 MB (`video.maxFileSizeMb`). A larger video is not played: Looppaper logs it and
+shows the pictures instead. It can make a smaller copy with [ffmpeg](https://ffmpeg.org/), but **always asks
+first** and never changes or deletes the original.
+
+- **From a terminal:** `Looppaper.exe --compress <file>` (a file name in the collection or a full path)
+  reads the video, shows its size and the estimated result, and asks:
+
+  ```
+  Floating_In_Space.mp4 is 217.9 MB, above the 100 MB video limit.
+  Estimated result: about 90.9 MB (1920x1080, 6.6 Mbit/s video + 128 kbit/s audio, 1:52).
+  The original is kept; the copy is saved in C:\Users\you\AppData\Local\Looppaper\cache.
+  Compress to fit under 100 MB? [y/N]
+  ```
+
+  Progress is shown while ffmpeg works; Ctrl+C cancels. `--compress` asks every time.
+- **At start-up (no terminal):** when the chosen video (`video.file`, `--video`, the first `.mp4` in the
+  collection, or a Wallpaper Engine video) is too large, Looppaper shows pictures and a Windows message box
+  with the same details and Yes / No. On Yes it compresses in the background and switches to the video when
+  it is ready. A No is remembered for that file (same path, size and modified time), so it does not ask on
+  every start; run `--compress` to change your mind. If ffmpeg is missing, the message box says how to
+  install it instead (once per file).
+
+How it compresses: the bitrate is worked out from the video's length so the copy lands at about 90% of the
+limit (128 kbit/s of that for audio; the audio is dropped only when the video would otherwise get too little),
+a video larger than your biggest monitor is scaled down to still cover it (never up, aspect ratio kept), and
+the first working encoder is used: NVIDIA NVENC, AMD AMF, Intel Quick Sync, else x264 on the CPU. If the copy
+still comes out over the limit it is redone once at a lower bitrate. The copy is checked (under the limit,
+readable by ffprobe) and saved as `%LOCALAPPDATA%\Looppaper\cache\<name>-<hash>.mp4`; from then on
+Looppaper plays it whenever the original is chosen. Answers and copies are recorded in
+`%LOCALAPPDATA%\Looppaper\compression.json`. Deleting the cache folder is safe (you will be asked again).
+
+ffmpeg is not included with Looppaper. Install it with `winget install Gyan.FFmpeg`, or set `ffmpegPath` in
+`config.json` to `ffmpeg.exe` or its folder; `ffprobe.exe` must be next to it. Looppaper also finds ffmpeg on
+PATH and in scoop and Chocolatey installs.
 
 ## Wallpaper Engine wallpapers
 

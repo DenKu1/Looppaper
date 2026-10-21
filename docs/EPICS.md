@@ -94,7 +94,7 @@ asking first.
       overwrite the original. Show progress in the console.
 - [x] 9.4 Use the result: verify it is under 100 MB, then play it and record the mapping so it is not
       compressed again.
-- [ ] 9.5 Tests and README.
+- [x] 9.5 Tests and README.
 ## Epic 6 — Distribution
 
 - [x] 6.1 Release workflow: pushing a tag `vX.Y.Z` builds, tests and publishes with the tag's version, packs
