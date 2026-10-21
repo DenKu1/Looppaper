@@ -194,6 +194,10 @@ Public since 2026-10-21.
 A new install shows something straight away, everything converted from Wallpaper Engine stays in the collection,
 and the slideshow switches between videos too.
 
+Owner's decisions (2026-10-21): all three parts approved; cycling is videos only (pictures only when there is no
+video). The log warnings about `D:\path\your.mp4` and `C:\Users\You\Videos\my-video.mp4` came from manual test
+commands with example paths, not from Looppaper, so there is nothing to fix there.
+
 - [ ] 13.1 Built-in default wallpaper: when there is no picture or video to show, Looppaper draws its own
       wallpaper (a gradient with the name and where to put pictures and videos) instead of the plain background
       color. Nothing is written to the collection.
