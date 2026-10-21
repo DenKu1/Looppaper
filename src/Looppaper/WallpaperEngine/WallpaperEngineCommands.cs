@@ -259,7 +259,7 @@ internal sealed class WallpaperEngineCommands
         ConsoleOutput.WriteLine(
             $"Converting records {plan.Seconds:0.#} s of it ({plan.Reason}) into a video under {VideoConfig.MaxFileSizeCapMb} MB. " +
             $"It takes about {minutes} min: Wallpaper Engine plays it in an off-screen window while ffmpeg {ffmpeg.Version} records it. " +
-            "Your desktop wallpaper is not changed.");
+            "If Wallpaper Engine isn't running, it is started for the recording (it may show its own wallpaper meanwhile) and closed again afterwards.");
 
         if (ask)
         {

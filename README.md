@@ -213,8 +213,9 @@ Scene and web wallpapers are rendered live by Wallpaper Engine, so Looppaper rec
 looping `.mp4` and plays that. `--we-set` / `--we-pick` on such an item explains what will happen, with an
 estimate, and asks `Convert now? [y/N]`; `--we-convert <number|id>` only records it (without changing
 `config.json`). While recording, Wallpaper Engine plays the wallpaper in a window of its own that is moved
-off-screen (your desktop wallpaper is not changed; on PCs that don't render off-screen windows it is moved
-on-screen for the recording), and ffmpeg records that window with its `gfxcapture` source:
+off-screen (on PCs that don't render off-screen windows it is moved on-screen for the recording). If
+Wallpaper Engine isn't running, Looppaper starts it for the recording and closes it again afterwards; while it
+runs it may show its own wallpaper on the desktop, and ffmpeg records that window with its `gfxcapture` source:
 
 - Length: if the scene's timeline animations loop (or a web page is built around one looping video), exactly
   one loop is recorded; otherwise 30 seconds whose end is crossfaded into the start so it loops seamlessly.
