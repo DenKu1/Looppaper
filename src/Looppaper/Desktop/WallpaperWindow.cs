@@ -9,16 +9,17 @@ internal interface IWallpaperWindowHandler
 {
     void OnPaint(IntPtr hdc, in RECT area);
 
-    /// <summary>Called for messages the window does not handle itself. Return true when handled.</summary>
-    bool OnMessage(uint msg, IntPtr wParam, IntPtr lParam);
-
-    /// <summary>Windows is logging off or shutting down.</summary>
-    void OnEndSession();
+    /// <summary>
+    /// The window was destroyed without <see cref="WallpaperWindow.Destroy"/>, i.e. by Explorer going away.
+    /// Called from inside WM_DESTROY, so it should only schedule work.
+    /// </summary>
+    void OnWindowLost();
 }
 
 /// <summary>
-/// The raw Win32 child window drawn behind the desktop icons. One per process; it covers the
-/// whole virtual screen and does no work beyond what its handler does in WM_PAINT.
+/// The raw Win32 child window drawn behind the desktop icons. At most one exists at a time; it covers the
+/// whole virtual screen and does no work beyond what its handler does in WM_PAINT. It dies with Explorer,
+/// so it is recreated in the new desktop when Explorer restarts (see <see cref="ControlWindow"/>).
 /// </summary>
 internal sealed unsafe class WallpaperWindow
 {
@@ -29,6 +30,7 @@ internal sealed unsafe class WallpaperWindow
 
     private readonly IWallpaperWindowHandler _handler;
     private readonly ILog _log;
+    private bool _destroying;
 
     private WallpaperWindow(IWallpaperWindowHandler handler, ILog log)
     {
@@ -38,11 +40,14 @@ internal sealed unsafe class WallpaperWindow
 
     public IntPtr Handle { get; private set; }
 
+    /// <summary>True while the window exists (it is destroyed together with Explorer's desktop).</summary>
+    public bool IsAlive => Handle != IntPtr.Zero && User32.IsWindow(Handle);
+
     public static WallpaperWindow? Create(DesktopHost host, IWallpaperWindowHandler handler, ILog log)
     {
         if (_instance is not null)
         {
-            throw new InvalidOperationException("Only one wallpaper window per process.");
+            throw new InvalidOperationException("Only one wallpaper window at a time.");
         }
 
         var hInstance = Kernel32.GetModuleHandle(null);
@@ -98,12 +103,19 @@ internal sealed unsafe class WallpaperWindow
         return window;
     }
 
-    /// <summary>Asks the window to close from any thread.</summary>
-    public void RequestClose()
+    /// <summary>Destroys the window on purpose (shutdown or recreating it); the handler is not told.</summary>
+    public void Destroy()
     {
+        _destroying = true;
         if (Handle != IntPtr.Zero)
         {
-            User32.PostMessage(Handle, User32.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+            User32.DestroyWindow(Handle);
+        }
+
+        Handle = IntPtr.Zero;
+        if (ReferenceEquals(_instance, this))
+        {
+            _instance = null;
         }
     }
 
@@ -115,21 +127,11 @@ internal sealed unsafe class WallpaperWindow
         }
     }
 
-    /// <summary>Pumps messages until the window is destroyed.</summary>
-    public static void RunMessageLoop()
-    {
-        while (User32.GetMessage(out var msg, IntPtr.Zero, 0, 0) > 0)
-        {
-            User32.TranslateMessage(msg);
-            User32.DispatchMessage(msg);
-        }
-    }
-
     [UnmanagedCallersOnly]
     private static IntPtr WndProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
         var self = _instance;
-        if (self is null)
+        if (self is null || self.Handle != hwnd)
         {
             return User32.DefWindowProc(hwnd, msg, wParam, lParam);
         }
@@ -140,9 +142,8 @@ internal sealed unsafe class WallpaperWindow
         }
         catch (Exception ex)
         {
-            // An exception must not unwind into native code; log it and shut down cleanly instead.
-            self._log.Error($"Unhandled exception in window message 0x{msg:X}; shutting down", ex);
-            User32.PostMessage(hwnd, User32.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+            // An exception must not unwind into native code; log it and carry on.
+            self._log.Error($"Unhandled exception in wallpaper window message 0x{msg:X}", ex);
             return IntPtr.Zero;
         }
     }
@@ -165,24 +166,18 @@ internal sealed unsafe class WallpaperWindow
                 }
 
                 return IntPtr.Zero;
-            case User32.WM_CLOSE:
-                User32.DestroyWindow(hwnd);
-                return IntPtr.Zero;
             case User32.WM_DESTROY:
                 Handle = IntPtr.Zero;
-                User32.PostQuitMessage(0);
-                return IntPtr.Zero;
-            case User32.WM_QUERYENDSESSION:
-                return 1;
-            case User32.WM_ENDSESSION:
-                if (wParam != IntPtr.Zero)
+                _instance = null;
+                if (!_destroying)
                 {
-                    _handler.OnEndSession();
+                    _log.Warn($"Wallpaper window 0x{hwnd:X} was destroyed from outside (Explorer closed or restarted?)");
+                    _handler.OnWindowLost();
                 }
 
                 return IntPtr.Zero;
         }
 
-        return _handler.OnMessage(msg, wParam, lParam) ? IntPtr.Zero : User32.DefWindowProc(hwnd, msg, wParam, lParam);
+        return User32.DefWindowProc(hwnd, msg, wParam, lParam);
     }
 }

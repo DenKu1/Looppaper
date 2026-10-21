@@ -20,9 +20,13 @@ internal sealed class PictureController
     /// <summary>How often single mode looks for a picture while it has nothing to show.</summary>
     private const uint EmptyRescanMs = 30_000;
 
+    private static int _nextGeneration;
+
     private readonly LooppaperConfig _config;
     private readonly ILog _log;
     private readonly WallpaperWindow _window;
+    private readonly IntPtr _messageWindow;
+    private readonly int _generation = Interlocked.Increment(ref _nextGeneration);
     private readonly DesktopHost _host;
     private readonly FrameCache _frame;
     private readonly MediaScanner _scanner;
@@ -33,11 +37,12 @@ internal sealed class PictureController
     private bool _warnedMissingPicture;
     private readonly Dictionary<string, DateTime> _bad = new(StringComparer.OrdinalIgnoreCase);
 
-    public PictureController(LooppaperConfig config, ILog log, WallpaperWindow window, DesktopHost host, FrameCache frame)
+    public PictureController(LooppaperConfig config, ILog log, WallpaperWindow window, IntPtr messageWindow, DesktopHost host, FrameCache frame)
     {
         _config = config;
         _log = log;
         _window = window;
+        _messageWindow = messageWindow;
         _host = host;
         _frame = frame;
         _scanner = new MediaScanner(log);
@@ -54,7 +59,7 @@ internal sealed class PictureController
         if (IsSlideshow)
         {
             var ms = (uint)Math.Min(_config.IntervalSeconds * 1000L, uint.MaxValue);
-            User32.SetTimer(_window.Handle, TimerId, ms, IntPtr.Zero);
+            User32.SetTimer(_messageWindow, TimerId, ms, IntPtr.Zero);
             _log.Info($"Slideshow every {_config.IntervalSeconds}s{(_config.Shuffle ? ", shuffled" : string.Empty)}");
         }
 
@@ -63,10 +68,7 @@ internal sealed class PictureController
 
     public void Stop()
     {
-        if (_window.Handle != IntPtr.Zero)
-        {
-            User32.KillTimer(_window.Handle, TimerId);
-        }
+        User32.KillTimer(_messageWindow, TimerId);
     }
 
     /// <summary>Handles the controller's window messages. Returns true when handled.</summary>
@@ -76,6 +78,9 @@ internal sealed class PictureController
         {
             case User32.WM_TIMER when (nuint)wParam == TimerId:
                 Advance();
+                return true;
+            case WM_FRAME_READY when (int)wParam != _generation:
+                Gdi32.DeleteObject(lParam); // rendered for a controller that has since been replaced
                 return true;
             case WM_FRAME_READY:
                 OnFrameReady(lParam);
@@ -94,7 +99,8 @@ internal sealed class PictureController
 
         var bounds = _host.ChildBounds();
         var monitors = Monitors.RelativeToVirtualScreen();
-        var hwnd = _window.Handle;
+        var hwnd = _messageWindow;
+        var generation = _generation;
         ThreadPool.QueueUserWorkItem(_ =>
         {
             var hbitmap = IntPtr.Zero;
@@ -107,7 +113,7 @@ internal sealed class PictureController
                 _log.Error("Preparing the next picture failed", ex);
             }
 
-            if (hbitmap == IntPtr.Zero || !User32.PostMessage(hwnd, WM_FRAME_READY, IntPtr.Zero, hbitmap))
+            if (hbitmap == IntPtr.Zero || !User32.PostMessage(hwnd, WM_FRAME_READY, generation, hbitmap))
             {
                 if (hbitmap != IntPtr.Zero)
                 {
@@ -251,11 +257,11 @@ internal sealed class PictureController
             // Single mode only keeps polling while there is nothing but background to show.
             if (_shownPath is null)
             {
-                User32.SetTimer(_window.Handle, TimerId, EmptyRescanMs, IntPtr.Zero);
+                User32.SetTimer(_messageWindow, TimerId, EmptyRescanMs, IntPtr.Zero);
             }
             else
             {
-                User32.KillTimer(_window.Handle, TimerId);
+                User32.KillTimer(_messageWindow, TimerId);
             }
         }
 

@@ -89,6 +89,7 @@ internal static unsafe partial class User32
     /// <summary>Undocumented Progman message that makes Explorer create the WorkerW behind the desktop icons.</summary>
     public const uint WM_SPAWN_WORKER = 0x052C;
 
+    public const uint WS_POPUP = 0x80000000;
     public const uint WS_CHILD = 0x40000000;
     public const uint WS_VISIBLE = 0x10000000;
     public const uint WS_CLIPSIBLINGS = 0x04000000;
@@ -108,6 +109,8 @@ internal static unsafe partial class User32
     public const int SW_SHOWNA = 8;
 
     public const uint SMTO_NORMAL = 0x0000;
+
+    public const uint MSGFLT_ALLOW = 1;
 
     public const int SM_XVIRTUALSCREEN = 76;
     public const int SM_YVIRTUALSCREEN = 77;
@@ -228,4 +231,11 @@ internal static unsafe partial class User32
     [LibraryImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool SystemParametersInfo(uint uiAction, uint uiParam, char* pvParam, uint fWinIni);
+
+    [LibraryImport("user32.dll", EntryPoint = "RegisterWindowMessageW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    public static partial uint RegisterWindowMessage(string lpString);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ChangeWindowMessageFilterEx(IntPtr hwnd, uint message, uint action, IntPtr pChangeFilterStruct);
 }

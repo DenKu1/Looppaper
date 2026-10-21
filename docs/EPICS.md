@@ -38,7 +38,7 @@ Tasks:
 Keep the wallpaper alive when the desktop changes under it, and stop spending power when nobody can see it.
 Pausing covers both the video (Media Engine paused, so the GPU decoder idles) and the slideshow timer.
 
-- [ ] 2.1 Explorer restart recovery: a hidden top-level control window owns the message loop and receives
+- [x] 2.1 Explorer restart recovery: a hidden top-level control window owns the message loop and receives
       `TaskbarCreated`; when Explorer restarts (or the wallpaper window's parent disappears) Looppaper finds the
       new desktop host, recreates its window and restarts the video or pictures instead of exiting.
 - [ ] 2.2 Pause on fullscreen app / game: while the foreground window covers its whole monitor (or Windows reports

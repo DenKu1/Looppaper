@@ -10,15 +10,27 @@ using Looppaper.Video;
 namespace Looppaper;
 
 /// <summary>Owns the wallpaper window and whatever is shown in it: a looping video, or pictures.</summary>
-internal sealed class WallpaperApp : IWallpaperWindowHandler
+internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHandler
 {
     /// <summary>Posted by the compression worker when the compressed copy of the playing video is ready.</summary>
     private const uint WM_COMPRESSED_VIDEO_READY = User32.WM_APP + 3;
+
+    /// <summary>Posted when the wallpaper window was destroyed from outside (Explorer went away).</summary>
+    private const uint WM_WALLPAPER_LOST = User32.WM_APP + 4;
+
+    private const nuint RecoverTimerId = 10;
+
+    /// <summary>Gives a restarting Explorer a moment to build its desktop before attaching to it.</summary>
+    private const uint RecoverDelayMs = 1000;
+
+    /// <summary>How often to look for Explorer's desktop again while it is missing.</summary>
+    private const uint RecoverRetryMs = 2000;
 
     private readonly LooppaperConfig _config;
     private readonly ILog _log;
     private readonly IntPtr _backgroundBrush;
     private readonly FrameCache _frame = new();
+    private ControlWindow? _control;
     private WallpaperWindow? _window;
     private DesktopHost? _host;
     private PictureController? _pictures;
@@ -26,6 +38,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
     private readonly CancellationTokenSource _cancel = new();
     private Task? _compression;
     private volatile string? _compressedPath;
+    private bool _recovering;
     private bool _shutDown;
 
     public WallpaperApp(LooppaperConfig config, ILog log)
@@ -38,33 +51,32 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
     public int Run()
     {
         WallpaperRestorer.Capture(_log);
-        _host = DesktopHost.Find(_log);
-        if (_host is null)
+        _control = ControlWindow.Create(this, _log);
+        if (_control is null)
         {
             return 1;
         }
 
-        _window = WallpaperWindow.Create(_host, this, _log);
-        if (_window is null)
+        if (AttachToDesktop())
         {
-            return 1;
+            StartContent();
+        }
+        else
+        {
+            // E.g. started at sign-in before Explorer's desktop exists: wait for it instead of giving up.
+            BeginRecovery("the desktop is not available yet");
         }
 
-        if (!TryStartVideo())
-        {
-            StartPictures();
-        }
-
-        WallpaperWindow.RunMessageLoop();
+        ControlWindow.RunMessageLoop();
         Shutdown();
         return 0;
     }
 
-    /// <summary>Thread-safe request to close the window and leave the message loop.</summary>
+    /// <summary>Thread-safe request to close the windows and leave the message loop.</summary>
     public void RequestStop()
     {
         _log.Info("Stop requested");
-        _window?.RequestClose();
+        _control?.RequestClose();
     }
 
     public void OnPaint(IntPtr hdc, in RECT area)
@@ -79,6 +91,30 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
         }
     }
 
+    public void OnWindowLost()
+    {
+        if (_control is { Handle: var hwnd } && hwnd != IntPtr.Zero)
+        {
+            User32.PostMessage(hwnd, WM_WALLPAPER_LOST, IntPtr.Zero, IntPtr.Zero);
+        }
+    }
+
+    public void OnTaskbarCreated()
+    {
+        if (_recovering || _shutDown)
+        {
+            return;
+        }
+
+        if (IsAttached())
+        {
+            _log.Info("Taskbar re-created; the wallpaper window is still attached to the desktop");
+            return;
+        }
+
+        BeginRecovery("Explorer restarted");
+    }
+
     public bool OnMessage(uint msg, IntPtr wParam, IntPtr lParam)
     {
         switch (msg)
@@ -86,8 +122,14 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
             case WM_COMPRESSED_VIDEO_READY:
                 SwitchToCompressedVideo();
                 return true;
+            case WM_WALLPAPER_LOST:
+                BeginRecovery("the wallpaper window was destroyed");
+                return true;
+            case User32.WM_TIMER when (nuint)wParam == RecoverTimerId:
+                Recover();
+                return true;
             case PictureController.WM_FRAME_READY when _pictures is null:
-                // A picture finished rendering after the switch to video; drop it.
+                // A picture finished rendering after the switch to video (or a rebuild); drop it.
                 Gdi32.DeleteObject(lParam);
                 return true;
             default:
@@ -101,6 +143,75 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
         Shutdown();
     }
 
+    /// <summary>True when our window still lives in the current Explorer desktop.</summary>
+    private bool IsAttached() =>
+        _window is { IsAlive: true } && _host is { IsAlive: true } host && host.Progman == User32.FindWindow("Progman", null);
+
+    /// <summary>(Re)creates the wallpaper window in Explorer's current desktop.</summary>
+    private bool AttachToDesktop()
+    {
+        _window?.Destroy();
+        _window = null;
+        _host = DesktopHost.Find(_log);
+        if (_host is null)
+        {
+            return false;
+        }
+
+        _window = WallpaperWindow.Create(_host, this, _log);
+        return _window is not null;
+    }
+
+    /// <summary>Stops what is shown and waits for Explorer's desktop to come back (see <see cref="Recover"/>).</summary>
+    private void BeginRecovery(string reason)
+    {
+        if (_shutDown || _recovering)
+        {
+            return;
+        }
+
+        _log.Warn($"Lost the desktop ({reason}); waiting for Explorer to re-attach the wallpaper");
+        _recovering = true;
+        StopContent();
+        User32.SetTimer(_control!.Handle, RecoverTimerId, RecoverDelayMs, IntPtr.Zero);
+    }
+
+    private void Recover()
+    {
+        User32.KillTimer(_control!.Handle, RecoverTimerId);
+        if (_shutDown)
+        {
+            return;
+        }
+
+        // Quietly keep waiting while Explorer is not running at all.
+        if (User32.FindWindow("Progman", null) == IntPtr.Zero || !AttachToDesktop())
+        {
+            User32.SetTimer(_control.Handle, RecoverTimerId, RecoverRetryMs, IntPtr.Zero);
+            return;
+        }
+
+        _recovering = false;
+        _log.Info("Re-attached to the desktop; restarting the wallpaper");
+        StartContent();
+    }
+
+    private void StartContent()
+    {
+        if (!TryStartVideo())
+        {
+            StartPictures();
+        }
+    }
+
+    private void StopContent()
+    {
+        _video?.Stop();
+        _video = null;
+        _pictures?.Stop();
+        _pictures = null;
+    }
+
     private bool TryStartVideo()
     {
         if (!_config.Video.Enabled)
@@ -111,7 +222,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
 
         var choice = FindVideo();
         var started = choice.PlayPath is { } path && StartVideo(path);
-        if (choice.ToCompress is { } original)
+        if (choice.ToCompress is { } original && _compression is not { IsCompleted: false })
         {
             // The original plays meanwhile (or pictures, if it could not be started).
             CompressInBackground(original);
@@ -122,7 +233,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
 
     private bool StartVideo(string path)
     {
-        _video = new VideoController(_config, _log, _window!);
+        _video = new VideoController(_config, _log, _window!, _control!.Handle);
         if (!_video.Start(path, Monitors.RelativeToVirtualScreen()))
         {
             _video = null;
@@ -130,8 +241,14 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
             return false;
         }
 
-        _video.Failed += () =>
+        var video = _video;
+        video.Failed += () =>
         {
+            if (!ReferenceEquals(_video, video))
+            {
+                return;
+            }
+
             _video = null;
             _log.Warn("Falling back to pictures");
             StartPictures();
@@ -161,7 +278,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
     /// </summary>
     private void CompressInBackground(VideoFileKey key)
     {
-        var hwnd = _window!.Handle;
+        var hwnd = _control!.Handle;
         var token = _cancel.Token;
         _compression = Task.Run(() =>
         {
@@ -185,16 +302,13 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
     private void SwitchToCompressedVideo()
     {
         var path = _compressedPath;
-        if (_shutDown || path is null)
+        if (_shutDown || _recovering || path is null)
         {
-            return;
+            return; // after recovery the compressed copy is found through its record
         }
 
         _log.Info($"Compressed video ready; switching to {path}");
-        _video?.Stop();
-        _video = null;
-        _pictures?.Stop();
-        _pictures = null;
+        StopContent();
         if (!StartVideo(path))
         {
             StartPictures();
@@ -236,7 +350,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
             return;
         }
 
-        _pictures = new PictureController(_config, _log, _window, _host!, _frame);
+        _pictures = new PictureController(_config, _log, _window, _control!.Handle, _host!, _frame);
         _pictures.FrameShown += ResourceSaver.Trim;
         _pictures.Start();
     }
@@ -255,8 +369,9 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
             _log.Warn("Video compression did not stop within 5 seconds");
         }
 
-        _video?.Stop();
-        _pictures?.Stop();
+        StopContent();
+        _window?.Destroy();
+        _window = null;
         _frame.Dispose();
         Gdi32.DeleteObject(_backgroundBrush);
         WallpaperRestorer.Restore(_log);

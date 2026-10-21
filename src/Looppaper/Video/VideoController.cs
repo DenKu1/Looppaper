@@ -17,18 +17,21 @@ internal sealed unsafe class VideoController
     private const string ClassName = "LooppaperVideoWindow";
 
     private static bool _classRegistered;
+    private static int _nextPlayerId;
 
     private readonly LooppaperConfig _config;
     private readonly ILog _log;
     private readonly WallpaperWindow _window;
+    private readonly IntPtr _messageWindow;
     private readonly List<Player> _players = [];
     private bool _mfStarted;
 
-    public VideoController(LooppaperConfig config, ILog log, WallpaperWindow window)
+    public VideoController(LooppaperConfig config, ILog log, WallpaperWindow window, IntPtr messageWindow)
     {
         _config = config;
         _log = log;
         _window = window;
+        _messageWindow = messageWindow;
     }
 
     /// <summary>Raised on the UI thread when playback fails after it was started.</summary>
@@ -93,7 +96,7 @@ internal sealed unsafe class VideoController
                 if (!player.LoggedPlaying)
                 {
                     player.LoggedPlaying = true;
-                    _log.Info($"Video playing on monitor {id + 1}");
+                    _log.Info($"Video playing on monitor {player.Monitor + 1}");
                 }
 
                 break;
@@ -134,9 +137,9 @@ internal sealed unsafe class VideoController
         }
     }
 
-    private Player? CreatePlayer(int id, string path, IntRect bounds, bool withAudio)
+    private Player? CreatePlayer(int monitor, string path, IntRect bounds, bool withAudio)
     {
-        var player = new Player { Id = id, Bounds = bounds };
+        var player = new Player { Id = Interlocked.Increment(ref _nextPlayerId), Monitor = monitor, Bounds = bounds };
         player.Hwnd = User32.CreateWindowEx(
             0,
             ClassName,
@@ -156,7 +159,7 @@ internal sealed unsafe class VideoController
             return null;
         }
 
-        player.Notify = MediaEngineNotify.Create(_window.Handle, id);
+        player.Notify = MediaEngineNotify.Create(_messageWindow, player.Id);
         var factory = IntPtr.Zero;
         var attributes = IntPtr.Zero;
         try
@@ -214,7 +217,7 @@ internal sealed unsafe class VideoController
         }
         else
         {
-            _log.Info($"Video is {width}x{height}; monitor {player.Id + 1} shows {visible} ({_config.Scaling})");
+            _log.Info($"Video is {width}x{height}; monitor {player.Monitor + 1} shows {visible} ({_config.Scaling})");
         }
     }
 
@@ -262,6 +265,7 @@ internal sealed unsafe class VideoController
     private sealed class Player
     {
         public int Id;
+        public int Monitor;
         public IntRect Bounds;
         public IntPtr Hwnd;
         public IntPtr Notify;
