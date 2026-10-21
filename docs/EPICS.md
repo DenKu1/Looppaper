@@ -158,6 +158,24 @@ registered window message to its hidden control window and print what it is doin
       the state; double-click pauses / resumes; it comes back after Explorer restarts.
 - [ ] 7.4 Tests and README.
 
+## Epic 11 — Make the repository public
+
+Planned; not started. The repository stays private until 11.7.
+
+- [ ] 11.1 Choose and add a LICENSE for Looppaper (the owner decides; MIT is the simple option and is compatible
+      with the wp2video-derived code). Update the winget manifest's `License` field to match.
+- [ ] 11.2 Scan the full git history for secrets and tokens, personal paths (e.g. `C:\Users\<name>`), personal
+      email addresses, test media, Wallpaper Engine / Workshop content that can't be redistributed, and anything
+      that doesn't belong in a public repo. Fix it, rewriting history only with the owner's OK.
+- [ ] 11.3 Check third-party licensing: wp2video (MIT) credited in `THIRD-PARTY-NOTICES.md`; ffmpeg not bundled;
+      no Workshop assets in the repo or the release zip.
+- [ ] 11.4 README for outside users: what it is, requirements (Windows 10/11; ffmpeg for conversion and
+      compression; Wallpaper Engine for scenes), install, usage, screenshots / GIF, known limitations.
+- [ ] 11.5 `CONTRIBUTING.md`, issue and pull-request templates, `SECURITY.md`, optional code of conduct.
+- [ ] 11.6 Turn on what public visibility makes possible: free CI minutes, the update check (`--check-update`
+      can see public releases), winget submission (6.2), optional free code signing (e.g. SignPath for open source).
+- [ ] 11.7 Switch the repository to public. Done by the owner, or by an assistant only with the owner's explicit
+      go-ahead; always the last step.
 ## Won't do (for now)
 
 Parked; kept here so the ideas are not lost.
