@@ -48,6 +48,7 @@ Tasks:
       terminal (which waits for them); the wallpaper itself runs as a background copy with no console window.
 - [x] S.2 One ffmpeg locator (config `ffmpegPath`, PATH, winget, scoop, Chocolatey, common folders) with version check,
       an ffprobe reader and a runner that reports progress.
+- [x] S.3 Shared cache folder for converted / compressed videos: `%LOCALAPPDATA%\Looppaper\cache` (`AppPaths.CacheDirectory`).
 
 ## Epic 8 — Wallpaper Engine library (next up)
 

@@ -11,6 +11,10 @@ public static class AppPaths
     public static string LogFile =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppName, "logs", "looppaper.log");
 
+    /// <summary>Converted and compressed videos (Epics 8 and 9). Safe to delete; it is rebuilt on demand.</summary>
+    public static string CacheDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppName, "cache");
+
     /// <summary>Expands environment variables (e.g. <c>%USERPROFILE%</c>), strips quotes and makes the path absolute.</summary>
     public static string ExpandPath(string path)
     {
