@@ -131,6 +131,14 @@ public static class CommandLineParser
                     NoValue();
                     SetControl(ControlCommand.Resume);
                     break;
+                case "next":
+                    NoValue();
+                    SetControl(ControlCommand.Next);
+                    break;
+                case "previous" or "prev":
+                    NoValue();
+                    SetControl(ControlCommand.Previous);
+                    break;
                 case "status":
                     NoValue();
                     SetControl(ControlCommand.Status);

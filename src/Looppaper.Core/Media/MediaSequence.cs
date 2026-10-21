@@ -3,12 +3,19 @@ namespace Looppaper.Core.Media;
 /// <summary>
 /// Endless sequence over a list of media files, either in list order (wrapping around) or shuffled.
 /// Shuffle uses Fisher-Yates and reshuffles after every full pass, never repeating the item that
-/// was just returned at the start of the next pass. Not thread-safe.
+/// was just returned at the start of the next pass. <see cref="Previous"/> steps back through the items already
+/// returned (and <see cref="Next"/> then replays them forward), so it also works when shuffled. Not thread-safe.
 /// </summary>
 public sealed class MediaSequence
 {
+    /// <summary>How many returned items <see cref="Previous"/> can go back through.</summary>
+    public const int HistoryLimit = 100;
+
     private readonly Random _random;
+    private readonly List<string> _history = [];
+    private readonly Stack<string> _forward = new();
     private List<string> _items = [];
+    private HashSet<string> _present = new(StringComparer.OrdinalIgnoreCase);
     private List<string> _order = [];
     private int _position;
 
@@ -24,7 +31,7 @@ public sealed class MediaSequence
 
     public int Count => _items.Count;
 
-    /// <summary>The item most recently returned by <see cref="Next"/>.</summary>
+    /// <summary>The item most recently returned by <see cref="Next"/> or <see cref="Previous"/>.</summary>
     public string? Current { get; private set; }
 
     /// <summary>
@@ -39,6 +46,7 @@ public sealed class MediaSequence
         }
 
         _items = [.. items];
+        _present = new HashSet<string>(_items, StringComparer.OrdinalIgnoreCase);
         if (Shuffle)
         {
             Reshuffle();
@@ -58,6 +66,15 @@ public sealed class MediaSequence
             return null;
         }
 
+        // After Previous: replay the items that were stepped back over first.
+        while (_forward.TryPop(out var replay))
+        {
+            if (_present.Contains(replay))
+            {
+                return Record(replay);
+            }
+        }
+
         if (_position >= _order.Count)
         {
             if (Shuffle)
@@ -70,8 +87,66 @@ public sealed class MediaSequence
             }
         }
 
-        Current = _order[_position++];
-        return Current;
+        return Record(_order[_position++]);
+    }
+
+    /// <summary>
+    /// Steps back to the item returned before <see cref="Current"/>. Null when there is none: an empty or one-item
+    /// list, nothing returned yet, or a shuffled sequence back at the oldest item it remembers. In list order it keeps
+    /// going back past the start of the history.
+    /// </summary>
+    public string? Previous()
+    {
+        if (Current is null || _items.Count < 2)
+        {
+            return null;
+        }
+
+        for (var i = _history.Count - 2; i >= 0; i--)
+        {
+            if (_present.Contains(_history[i]))
+            {
+                StepBackTo(i);
+                return Current;
+            }
+        }
+
+        if (Shuffle)
+        {
+            return null;
+        }
+
+        var index = _items.FindIndex(item => string.Equals(item, Current, StringComparison.OrdinalIgnoreCase));
+        var previous = index < 0 ? _items[^1] : _items[(index - 1 + _items.Count) % _items.Count];
+        _forward.Push(Current);
+        _history.Clear();
+        _history.Add(previous);
+        Current = previous;
+        return previous;
+    }
+
+    /// <summary>Makes history entry <paramref name="index"/> current; the later ones wait in <see cref="_forward"/>.</summary>
+    private void StepBackTo(int index)
+    {
+        for (var j = _history.Count - 1; j > index; j--)
+        {
+            _forward.Push(_history[j]);
+        }
+
+        _history.RemoveRange(index + 1, _history.Count - index - 1);
+        Current = _history[index];
+    }
+
+    private string Record(string item)
+    {
+        Current = item;
+        _history.Add(item);
+        if (_history.Count > HistoryLimit)
+        {
+            _history.RemoveAt(0);
+        }
+
+        return item;
     }
 
     private void Reshuffle()

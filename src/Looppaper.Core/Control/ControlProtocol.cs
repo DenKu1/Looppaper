@@ -89,7 +89,8 @@ public readonly record struct ControlReply(ControlState State, PauseReason AutoP
             ControlCommand.Next or ControlCommand.Previous when State.HasFlag(ControlState.NotApplicable) =>
                 (State.HasFlag(ControlState.Video) ? "A video is the wallpaper, so there is no other picture to switch to. "
                     : State.HasFlag(ControlState.Slideshow) ? "There is no other picture to switch to. "
-                    : "Single-picture mode shows one picture, so there is nothing to switch to. ") + state,
+                    : State.HasFlag(ControlState.Pictures) ? "Single-picture mode shows one picture, so there is nothing to switch to. "
+                    : "Nothing to switch to right now. ") + state,
             ControlCommand.Next => "Switching to the next picture. " + state,
             ControlCommand.Previous => "Switching to the previous picture. " + state,
             _ => state,

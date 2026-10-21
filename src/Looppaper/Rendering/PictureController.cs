@@ -81,6 +81,30 @@ internal sealed class PictureController
     }
 
     /// <summary>
+    /// Shows the next (or previous) slideshow picture now, and the interval starts again. Returns false when there is
+    /// nothing to switch to: single-picture mode, or fewer than two pictures. While paused the new picture is shown
+    /// and the slideshow stays held.
+    /// </summary>
+    public bool Step(bool backwards)
+    {
+        if (!IsSlideshow || _sequence.Count < 2)
+        {
+            return false;
+        }
+
+        _log.Info(backwards ? "Previous picture requested" : "Next picture requested");
+        _dueAt = Environment.TickCount64 + IntervalMs;
+        _shortTimer = false;
+        if (!_paused)
+        {
+            User32.SetTimer(_messageWindow, TimerId, IntervalMs, IntPtr.Zero);
+        }
+
+        Advance(backwards);
+        return true;
+    }
+
+    /// <summary>
     /// The collection changed: single mode renders again (the picture may have been replaced), and the slideshow
     /// moves on only when the picture on screen was removed or nothing is shown yet; otherwise its next step sees the new set.
     /// </summary>
@@ -169,7 +193,7 @@ internal sealed class PictureController
         }
     }
 
-    private void Advance()
+    private void Advance(bool backwards = false)
     {
         if (Interlocked.Exchange(ref _busy, 1) != 0)
         {
@@ -185,7 +209,7 @@ internal sealed class PictureController
             var hbitmap = IntPtr.Zero;
             try
             {
-                hbitmap = RenderNext(bounds.Width, bounds.Height, monitors);
+                hbitmap = RenderNext(bounds.Width, bounds.Height, monitors, backwards);
             }
             catch (Exception ex)
             {
@@ -205,13 +229,13 @@ internal sealed class PictureController
     }
 
     /// <summary>Runs on a thread-pool thread. Returns a rendered frame, or zero when nothing changed.</summary>
-    private IntPtr RenderNext(int width, int height, IReadOnlyList<Core.Rendering.IntRect> monitors)
+    private IntPtr RenderNext(int width, int height, IReadOnlyList<Core.Rendering.IntRect> monitors, bool backwards)
     {
         var background = _config.ResolveBackgroundColor();
         var pictures = _scanner.Scan(_config.ResolveCollectionFolder(), MediaKind.Picture, _config.MaxPictureSizeMb)
             .Where(p => !IsKnownBad(p))
             .ToList();
-        var candidates = IsSlideshow ? SlideshowCandidates(pictures) : SingleCandidates(pictures);
+        var candidates = IsSlideshow ? SlideshowCandidates(pictures, backwards) : SingleCandidates(pictures);
 
         var tried = 0;
         foreach (var path in candidates)
@@ -233,6 +257,12 @@ internal sealed class PictureController
             RememberBad(path);
         }
 
+        if (backwards && _shownSomething && _shownPath is not null && File.Exists(_shownPath))
+        {
+            _log.Info("No earlier picture to go back to");
+            return IntPtr.Zero; // keep the current picture
+        }
+
         if (_shownSomething && _shownPath is null)
         {
             return IntPtr.Zero; // background already showing
@@ -243,13 +273,19 @@ internal sealed class PictureController
         return PictureRenderer.Render(null, width, height, monitors, _config.Scaling, background, _log);
     }
 
-    /// <summary>Lazily yields the next pictures in slideshow order, at most one full pass.</summary>
-    private IEnumerable<string> SlideshowCandidates(List<string> pictures)
+    /// <summary>Lazily yields the next (or previous) pictures in slideshow order, at most one full pass.</summary>
+    private IEnumerable<string> SlideshowCandidates(List<string> pictures, bool backwards)
     {
         _sequence.Update(pictures);
         for (var i = 0; i < _sequence.Count; i++)
         {
-            yield return _sequence.Next()!;
+            var next = backwards ? _sequence.Previous() : _sequence.Next();
+            if (next is null)
+            {
+                yield break;
+            }
+
+            yield return next;
         }
     }
 

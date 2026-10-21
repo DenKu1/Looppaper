@@ -233,7 +233,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
                 SetPausedByUser(command == ControlCommand.Pause, "command line");
                 break;
             case ControlCommand.Next or ControlCommand.Previous:
-                applicable = false;
+                applicable = _pictures?.Step(backwards: command == ControlCommand.Previous) == true;
                 break;
         }
 

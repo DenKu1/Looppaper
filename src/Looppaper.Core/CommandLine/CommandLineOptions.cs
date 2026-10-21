@@ -26,6 +26,8 @@ public sealed class CommandLineOptions
           --stop                 Stop the running instance and restore the wallpaper
           --pause                Pause the running wallpaper (video and slideshow) until --resume
           --resume               Resume after --pause
+          --next                 Show the next slideshow picture now
+          --previous             Go back to the previous slideshow picture
           --status               Show what the running wallpaper is doing
           --install-startup      Start Looppaper when you sign in (current user)
           --uninstall-startup    Remove Looppaper from sign-in startup

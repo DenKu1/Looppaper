@@ -71,6 +71,18 @@ public class ControlProtocolTests
     }
 
     [Fact]
+    public void DescribeResult_Next_SaysWhyNothingChanged()
+    {
+        var video = new ControlReply(ControlState.Running | ControlState.Video | ControlState.NotApplicable, PauseReason.None);
+        var single = new ControlReply(ControlState.Running | ControlState.Pictures | ControlState.NotApplicable, PauseReason.None);
+        var slideshow = new ControlReply(ControlState.Running | ControlState.Pictures | ControlState.Slideshow, PauseReason.None);
+
+        Assert.StartsWith("A video is the wallpaper", video.DescribeResult(ControlCommand.Next));
+        Assert.StartsWith("Single-picture mode", single.DescribeResult(ControlCommand.Previous));
+        Assert.Equal("Switching to the next picture. Showing a slideshow.", slideshow.DescribeResult(ControlCommand.Next));
+    }
+
+    [Fact]
     public void DescribeResult_Pause()
     {
         var reply = new ControlReply(ControlState.Running | ControlState.Pictures | ControlState.Slideshow | ControlState.PausedByUser, PauseReason.None);
@@ -82,6 +94,9 @@ public class ControlProtocolTests
     [InlineData("--pause", ControlCommand.Pause)]
     [InlineData("--resume", ControlCommand.Resume)]
     [InlineData("--status", ControlCommand.Status)]
+    [InlineData("--next", ControlCommand.Next)]
+    [InlineData("--previous", ControlCommand.Previous)]
+    [InlineData("--prev", ControlCommand.Previous)]
     public void Parser_ControlCommands(string arg, ControlCommand expected)
     {
         var options = CommandLineParser.Parse([arg]);

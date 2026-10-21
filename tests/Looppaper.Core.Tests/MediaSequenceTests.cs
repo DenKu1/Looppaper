@@ -119,4 +119,97 @@ public class MediaSequenceTests
             Assert.NotEqual(current, sequence.Next());
         }
     }
+
+    [Fact]
+    public void Previous_GoesBackThenNextReplaysForward()
+    {
+        var sequence = new MediaSequence(shuffle: false);
+        sequence.Update(["a", "b", "c", "d"]);
+        sequence.Next();
+        sequence.Next();
+        sequence.Next(); // "c"
+
+        Assert.Equal("b", sequence.Previous());
+        Assert.Equal("a", sequence.Previous());
+        Assert.Equal("b", sequence.Next());
+        Assert.Equal("c", sequence.Next());
+        Assert.Equal("d", sequence.Next());
+        Assert.Equal("a", sequence.Next());
+    }
+
+    [Fact]
+    public void Previous_InOrder_KeepsGoingBackPastTheStart()
+    {
+        var sequence = new MediaSequence(shuffle: false);
+        sequence.Update(["a", "b", "c"]);
+        sequence.Next(); // "a"
+
+        Assert.Equal("c", sequence.Previous());
+        Assert.Equal("b", sequence.Previous());
+        Assert.Equal("c", sequence.Next());
+        Assert.Equal("a", sequence.Next());
+        Assert.Equal("b", sequence.Next());
+    }
+
+    [Fact]
+    public void Previous_Shuffled_RetracesWhatWasShown()
+    {
+        var sequence = new MediaSequence(shuffle: true, new Random(7));
+        sequence.Update(Five);
+        var shown = Enumerable.Range(0, 8).Select(_ => sequence.Next()!).ToList();
+
+        for (var i = shown.Count - 2; i >= 0; i--)
+        {
+            Assert.Equal(shown[i], sequence.Previous());
+        }
+
+        Assert.Null(sequence.Previous()); // nothing older remembered
+        Assert.Equal(shown[0], sequence.Current);
+        Assert.Equal(shown.Skip(1), Enumerable.Range(0, shown.Count - 1).Select(_ => sequence.Next()!));
+    }
+
+    [Fact]
+    public void Previous_SkipsRemovedItems()
+    {
+        var sequence = new MediaSequence(shuffle: false);
+        sequence.Update(["a", "b", "c"]);
+        sequence.Next();
+        sequence.Next();
+        sequence.Next(); // "c"
+
+        sequence.Update(["a", "c"]);
+
+        Assert.Equal("a", sequence.Previous());
+        Assert.Equal("c", sequence.Next());
+    }
+
+    [Fact]
+    public void Previous_NothingToGoBackTo()
+    {
+        var sequence = new MediaSequence(shuffle: false);
+        Assert.Null(sequence.Previous());
+
+        sequence.Update(["only"]);
+        sequence.Next();
+        Assert.Null(sequence.Previous());
+    }
+
+    [Fact]
+    public void History_IsBounded()
+    {
+        var sequence = new MediaSequence(shuffle: true, new Random(1));
+        sequence.Update(Five);
+        for (var i = 0; i < MediaSequence.HistoryLimit + 50; i++)
+        {
+            sequence.Next();
+        }
+
+        var steps = 0;
+        while (sequence.Previous() is not null)
+        {
+            steps++;
+        }
+
+        Assert.Equal(MediaSequence.HistoryLimit - 1, steps);
+    }
 }
