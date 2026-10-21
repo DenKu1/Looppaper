@@ -80,6 +80,23 @@ internal sealed class PictureController
         User32.KillTimer(_messageWindow, TimerId);
     }
 
+    /// <summary>
+    /// The collection changed: single mode renders again (the picture may have been replaced), and the slideshow
+    /// moves on only when the picture on screen was removed or nothing is shown yet; otherwise its next step sees the new set.
+    /// </summary>
+    public void Refresh()
+    {
+        if (!IsSlideshow)
+        {
+            _shownSomething = false;
+            Advance();
+        }
+        else if (_shownPath is null || !File.Exists(_shownPath))
+        {
+            Advance();
+        }
+    }
+
     /// <summary>Holds the slideshow (and the empty-folder rescan) while nothing can be seen; resuming keeps the remaining interval.</summary>
     public void SetPaused(bool paused)
     {

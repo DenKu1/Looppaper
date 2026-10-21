@@ -19,6 +19,10 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     /// <summary>Posted when the wallpaper window was destroyed from outside (Explorer went away).</summary>
     private const uint WM_WALLPAPER_LOST = User32.WM_APP + 4;
 
+    /// <summary>Posted by the file watchers (thread-pool threads) when config.json or the collection folder changed.</summary>
+    private const uint WM_CONFIG_CHANGED = User32.WM_APP + 5;
+    private const uint WM_COLLECTION_CHANGED = User32.WM_APP + 6;
+
     private const nint SPI_SETWORKAREA = 0x2F;
 
     private const nuint RecoverTimerId = 10;
@@ -39,12 +43,25 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     /// <summary>Display changes arrive in bursts (one per monitor, resolution, DPI, work area); act once they settle.</summary>
     private const uint DisplaySettleMs = 1500;
 
-    private readonly LooppaperConfig _config;
+    private const nuint ConfigTimerId = 13;
+    private const nuint CollectionTimerId = 14;
+
+    /// <summary>Editors save in several steps; read the config once they are done.</summary>
+    private const uint ConfigSettleMs = 500;
+
+    /// <summary>Copying a batch of pictures takes a while; look at the collection once it is quiet.</summary>
+    private const uint CollectionSettleMs = 2000;
+
+    private readonly string _configPath;
+    private readonly Func<LooppaperConfig?> _reloadConfig;
     private readonly ILog _log;
-    private readonly IntPtr _backgroundBrush;
+    private LooppaperConfig _config;
+    private IntPtr _backgroundBrush;
     private readonly FrameCache _frame = new();
     private ControlWindow? _control;
     private PowerWatcher? _power;
+    private FileChangeWatcher? _configWatcher;
+    private FileChangeWatcher? _collectionWatcher;
     private WallpaperWindow? _window;
     private DesktopHost? _host;
     private PictureController? _pictures;
@@ -53,14 +70,18 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     private readonly CancellationTokenSource _cancel = new();
     private Task? _compression;
     private volatile string? _compressedPath;
+
     /// <summary>Virtual screen and monitors the current window and content were built for.</summary>
     private string? _displayLayout;
     private bool _recovering;
     private bool _shutDown;
 
-    public WallpaperApp(LooppaperConfig config, ILog log)
+    /// <param name="reloadConfig">Re-reads <paramref name="configPath"/> with the command-line overrides applied; null keeps the current settings.</param>
+    public WallpaperApp(LooppaperConfig config, string configPath, Func<LooppaperConfig?> reloadConfig, ILog log)
     {
         _config = config;
+        _configPath = configPath;
+        _reloadConfig = reloadConfig;
         _log = log;
         _backgroundBrush = Gdi32.CreateSolidBrush(config.ResolveBackgroundColor().ToColorRef());
     }
@@ -75,19 +96,19 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         }
 
         _power = new PowerWatcher(_control.Handle, _log);
-        _power.Changed += (reason, active) =>
-        {
-            if (_config.Pause.Allows(reason) && _pause.Set(reason, active))
-            {
-                ApplyPause();
-            }
-        };
+        _power.Changed += (_, _) => SyncPauseSettings();
         _power.Resumed += RestartVideoAfterSleep;
+        SyncPauseSettings();
 
-        if (_config.Pause.OnFullscreen)
+        var configFolder = Path.GetDirectoryName(_configPath);
+        if (configFolder is not null)
         {
-            User32.SetTimer(_control.Handle, FullscreenTimerId, FullscreenPollMs, IntPtr.Zero);
+            _configWatcher = FileChangeWatcher.Start(
+                configFolder, Path.GetFileName(_configPath), path => string.Equals(path, _configPath, StringComparison.OrdinalIgnoreCase),
+                _control.Handle, WM_CONFIG_CHANGED, _log);
         }
+
+        WatchCollection();
 
         if (AttachToDesktop())
         {
@@ -170,6 +191,20 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
             case User32.WM_TIMER when (nuint)wParam == DisplayTimerId:
                 User32.KillTimer(_control!.Handle, DisplayTimerId);
                 OnDisplayChanged();
+                return true;
+            case WM_CONFIG_CHANGED:
+                User32.SetTimer(_control!.Handle, ConfigTimerId, ConfigSettleMs, IntPtr.Zero);
+                return true;
+            case WM_COLLECTION_CHANGED:
+                User32.SetTimer(_control!.Handle, CollectionTimerId, CollectionSettleMs, IntPtr.Zero);
+                return true;
+            case User32.WM_TIMER when (nuint)wParam == ConfigTimerId:
+                User32.KillTimer(_control!.Handle, ConfigTimerId);
+                ReloadConfig();
+                return true;
+            case User32.WM_TIMER when (nuint)wParam == CollectionTimerId:
+                User32.KillTimer(_control!.Handle, CollectionTimerId);
+                OnCollectionChanged();
                 return true;
             case Power.WM_WTSSESSION_CHANGE or Power.WM_POWERBROADCAST:
                 return _power?.OnMessage(msg, wParam, lParam) == true;
@@ -278,6 +313,114 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
 
     private static string DisplayLayout() =>
         $"virtual screen {DesktopHost.VirtualScreen()}, monitors {string.Join(", ", Monitors.RelativeToVirtualScreen())}";
+
+    /// <summary>
+    /// Brings <see cref="_pause"/> in line with the power watcher's state and the <c>pause</c> settings, and starts
+    /// or stops the full-screen poll. Used at start, on every power change and after the config was reloaded.
+    /// </summary>
+    private void SyncPauseSettings()
+    {
+        var changed = false;
+        var active = _power?.Active ?? PauseReason.None;
+        foreach (var reason in Enum.GetValues<PauseReason>())
+        {
+            if (reason is not (PauseReason.None or PauseReason.ExclusiveFullscreen))
+            {
+                changed |= _pause.Set(reason, active.HasFlag(reason) && _config.Pause.Allows(reason));
+            }
+        }
+
+        if (_config.Pause.OnFullscreen)
+        {
+            User32.SetTimer(_control!.Handle, FullscreenTimerId, FullscreenPollMs, IntPtr.Zero);
+        }
+        else
+        {
+            User32.KillTimer(_control!.Handle, FullscreenTimerId);
+            changed |= _pause.SetCovered([]);
+            changed |= _pause.Set(PauseReason.ExclusiveFullscreen, false);
+        }
+
+        if (changed)
+        {
+            ApplyPause();
+        }
+    }
+
+    /// <summary>Watches the collection folder for added, changed and removed pictures and videos.</summary>
+    private void WatchCollection()
+    {
+        _collectionWatcher?.Dispose();
+        _collectionWatcher = FileChangeWatcher.Start(
+            _config.ResolveCollectionFolder(), "*",
+            path => MediaScanner.IsSupported(path, MediaKind.Picture) || MediaScanner.IsSupported(path, MediaKind.Video),
+            _control!.Handle, WM_COLLECTION_CHANGED, _log);
+    }
+
+    /// <summary>config.json changed on disk: apply the new settings without a restart.</summary>
+    private void ReloadConfig()
+    {
+        if (_shutDown)
+        {
+            return;
+        }
+
+        var fresh = _reloadConfig();
+        if (fresh is null)
+        {
+            return;
+        }
+
+        if (ConfigLoader.Serialize(fresh) == ConfigLoader.Serialize(_config))
+        {
+            _log.Info("Config file changed; the settings are the same");
+            return;
+        }
+
+        var folderChanged = !string.Equals(fresh.ResolveCollectionFolder(), _config.ResolveCollectionFolder(), StringComparison.OrdinalIgnoreCase);
+        _log.Info($"Config reloaded: collection {fresh.ResolveCollectionFolder()}, mode {fresh.Mode}, interval {fresh.IntervalSeconds}s, scaling {fresh.Scaling}, video {(fresh.Video.Enabled ? "on" : "off")}");
+        _config = fresh;
+        var oldBrush = _backgroundBrush;
+        _backgroundBrush = Gdi32.CreateSolidBrush(fresh.ResolveBackgroundColor().ToColorRef());
+        Gdi32.DeleteObject(oldBrush);
+        if (folderChanged)
+        {
+            WatchCollection();
+        }
+
+        SyncPauseSettings();
+        if (_recovering)
+        {
+            return; // the new settings apply once the desktop is back
+        }
+
+        StopContent();
+        StartContent();
+    }
+
+    /// <summary>
+    /// Pictures or videos were added, changed or removed: switch to a video that appeared (or away from one that
+    /// went), and let the pictures pick up the new set.
+    /// </summary>
+    private void OnCollectionChanged()
+    {
+        if (_shutDown || _recovering)
+        {
+            return;
+        }
+
+        _log.Info("Collection folder changed");
+        var playing = _video?.Path;
+        var wanted = _config.Video.Enabled ? FindVideo().PlayPath : null;
+        if (!string.Equals(playing, wanted, StringComparison.OrdinalIgnoreCase))
+        {
+            StopContent();
+            StartContent();
+            return;
+        }
+
+        _pictures?.Refresh();
+    }
 
     /// <summary>Polled: pauses the monitor a full-screen window covers, or everything for an exclusive full-screen game.</summary>
     private void CheckFullscreen()
@@ -480,6 +623,8 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         }
 
         _power?.Dispose();
+        _configWatcher?.Dispose();
+        _collectionWatcher?.Dispose();
         StopContent();
         _window?.Destroy();
         _window = null;

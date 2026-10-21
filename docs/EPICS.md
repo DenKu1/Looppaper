@@ -49,7 +49,7 @@ Pausing covers both the video (Media Engine paused, so the GPU decoder idles) an
       default true) and optionally running on battery (`pause.onBattery`, default false).
 - [x] 2.4 Monitor hot-plug, resolution and DPI changes: on display, DPI or work-area changes (debounced) the window
       is resized to the new virtual screen and the video players / picture frame are rebuilt per monitor.
-- [ ] 2.5 Hot-reload of `config.json` and a collection folder watcher: edits to the config apply without a restart
+- [x] 2.5 Hot-reload of `config.json` and a collection folder watcher: edits to the config apply without a restart
       (command-line overrides still win); pictures or videos added, changed or removed in the collection folder are
       picked up straight away (debounced).
 - [ ] 2.6 Crash watchdog: a small `--watchdog` copy waits for the wallpaper process; if it ends without a clean stop

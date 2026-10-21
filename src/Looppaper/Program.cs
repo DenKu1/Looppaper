@@ -95,7 +95,7 @@ internal static class Program
             UpdateCheck.StartInBackground(log);
         }
 
-        var app = new WallpaperApp(config, log);
+        var app = new WallpaperApp(config, configPath, () => ReloadConfig(configPath, options, log), log);
         instance.ListenForStop(app.RequestStop);
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
@@ -110,6 +110,19 @@ internal static class Program
         };
 
         return app.Run();
+    }
+
+    /// <summary>Re-reads config.json for hot-reload, with the command-line overrides applied again; null keeps the current settings.</summary>
+    private static LooppaperConfig? ReloadConfig(string configPath, CommandLineOptions options, ILog log)
+    {
+        if (!ConfigLoader.TryLoad(configPath, log, out var config))
+        {
+            return null;
+        }
+
+        options.ApplyTo(config);
+        ConfigValidator.Normalize(config, log);
+        return config;
     }
 
     private static int ConfigureStartup(bool install, ILog log)

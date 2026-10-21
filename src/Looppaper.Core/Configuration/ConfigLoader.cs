@@ -60,6 +60,43 @@ public static class ConfigLoader
         return config;
     }
 
+    /// <summary>
+    /// Re-reads an existing config for hot-reload. Unlike <see cref="LoadOrCreate"/> it never falls back to the
+    /// defaults: a missing, unreadable or half-written (invalid JSON) file returns false so the current settings stay.
+    /// </summary>
+    public static bool TryLoad(string path, ILog log, out LooppaperConfig config)
+    {
+        config = new LooppaperConfig();
+        string text;
+        try
+        {
+            text = File.ReadAllText(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log.Warn($"Cannot read config {path} ({ex.Message}); keeping the current settings");
+            return false;
+        }
+
+        try
+        {
+            if (JsonNode.Parse(text, documentOptions: DocumentOptions) is not JsonObject)
+            {
+                log.Warn($"Config {path} is not a JSON object; keeping the current settings");
+                return false;
+            }
+        }
+        catch (JsonException ex)
+        {
+            log.Warn($"Config {path} is not valid JSON ({ex.Message}); keeping the current settings");
+            return false;
+        }
+
+        config = Parse(text, log);
+        ConfigValidator.Normalize(config, log);
+        return true;
+    }
+
     public static string Serialize(LooppaperConfig config) =>
         Header + JsonSerializer.Serialize(config, WriteOptions) + "\r\n";
 

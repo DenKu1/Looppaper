@@ -20,6 +20,9 @@ internal sealed unsafe class PowerWatcher : IDisposable
     private bool _energySaver;
     private PauseReason _active;
 
+    /// <summary>The reasons currently in effect, whatever the settings say about them.</summary>
+    public PauseReason Active => _active;
+
     public PowerWatcher(IntPtr hwnd, ILog log)
     {
         _hwnd = hwnd;
