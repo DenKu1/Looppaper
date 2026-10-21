@@ -277,6 +277,27 @@ public static class ConfigLoader
                     }
 
                     break;
+                case "onlock":
+                    if (ReadBool(value, path, log, out var onLock))
+                    {
+                        pause.OnLock = onLock;
+                    }
+
+                    break;
+                case "onbatterysaver":
+                    if (ReadBool(value, path, log, out var onBatterySaver))
+                    {
+                        pause.OnBatterySaver = onBatterySaver;
+                    }
+
+                    break;
+                case "onbattery":
+                    if (ReadBool(value, path, log, out var onBattery))
+                    {
+                        pause.OnBattery = onBattery;
+                    }
+
+                    break;
                 default:
                     log.Warn($"Config: unknown field '{path}' ignored");
                     break;

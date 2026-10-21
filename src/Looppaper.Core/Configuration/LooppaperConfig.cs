@@ -1,3 +1,5 @@
+using Looppaper.Core.Playback;
+
 namespace Looppaper.Core.Configuration;
 
 public enum WallpaperMode
@@ -120,6 +122,25 @@ public sealed class PauseConfig
 {
     /// <summary>Pause while a full-screen app or game covers a monitor (only that monitor, unless it is an exclusive full-screen game).</summary>
     public bool OnFullscreen { get; set; } = true;
+
+    /// <summary>Pause while the session is locked or disconnected.</summary>
+    public bool OnLock { get; set; } = true;
+
+    /// <summary>Pause while battery saver / Energy Saver is on.</summary>
+    public bool OnBatterySaver { get; set; } = true;
+
+    /// <summary>Pause whenever the PC runs on battery.</summary>
+    public bool OnBattery { get; set; }
+
+    /// <summary>Whether this reason pauses playback. Sleep and the display turning off always do.</summary>
+    public bool Allows(PauseReason reason) => reason switch
+    {
+        PauseReason.ExclusiveFullscreen => OnFullscreen,
+        PauseReason.Locked or PauseReason.Disconnected => OnLock,
+        PauseReason.BatterySaver => OnBatterySaver,
+        PauseReason.OnBattery => OnBattery,
+        _ => true,
+    };
 }
 
 /// <summary>The <c>wallpaperEngine</c> section: overrides for the folders found through Steam.</summary>

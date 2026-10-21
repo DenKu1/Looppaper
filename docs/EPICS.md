@@ -44,7 +44,7 @@ Pausing covers both the video (Media Engine paused, so the GPU decoder idles) an
 - [x] 2.2 Pause on fullscreen app / game: while the foreground window covers its whole monitor (or Windows reports
       a full-screen Direct3D app or presentation mode) playback pauses, and resumes when that window goes away.
       Config `pause.onFullscreen` (default true).
-- [ ] 2.3 Pause on lock, sleep, display off and battery saver: session lock / disconnect (`pause.onLock`, default
+- [x] 2.3 Pause on lock, sleep, display off and battery saver: session lock / disconnect (`pause.onLock`, default
       true), suspend / resume, the display turning off (always), Windows energy saver (`pause.onBatterySaver`,
       default true) and optionally running on battery (`pause.onBattery`, default false).
 - [ ] 2.4 Monitor hot-plug, resolution and DPI changes: on display, DPI or work-area changes (debounced) the window

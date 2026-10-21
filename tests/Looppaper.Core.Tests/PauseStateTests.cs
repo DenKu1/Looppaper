@@ -82,6 +82,55 @@ public class PauseStateTests
     }
 
     [Fact]
+    public void Config_LockAndPowerOptions()
+    {
+        var log = new MemoryLog();
+        var defaults = new PauseConfig();
+        Assert.True(defaults.OnLock);
+        Assert.True(defaults.OnBatterySaver);
+        Assert.False(defaults.OnBattery);
+
+        var config = ConfigLoader.Parse("""{ "pause": { "onLock": false, "onBatterySaver": false, "onBattery": true } }""", log);
+
+        Assert.Empty(log.Warnings);
+        Assert.False(config.Pause.OnLock);
+        Assert.False(config.Pause.OnBatterySaver);
+        Assert.True(config.Pause.OnBattery);
+    }
+
+    [Theory]
+    [InlineData(PauseReason.ExclusiveFullscreen, false)]
+    [InlineData(PauseReason.Locked, false)]
+    [InlineData(PauseReason.Disconnected, false)]
+    [InlineData(PauseReason.BatterySaver, false)]
+    [InlineData(PauseReason.OnBattery, false)]
+    [InlineData(PauseReason.Suspended, true)]
+    [InlineData(PauseReason.DisplayOff, true)]
+    public void Allows_FollowsTheSwitches_SleepAndDisplayOffAlwaysPause(PauseReason reason, bool allowedWhenAllOff)
+    {
+        var off = new PauseConfig { OnFullscreen = false, OnLock = false, OnBatterySaver = false, OnBattery = false };
+        var on = new PauseConfig { OnFullscreen = true, OnLock = true, OnBatterySaver = true, OnBattery = true };
+
+        Assert.Equal(allowedWhenAllOff, off.Allows(reason));
+        Assert.True(on.Allows(reason));
+    }
+
+    [Fact]
+    public void SeveralReasons_ResumeOnlyWhenAllAreGone()
+    {
+        var state = new PauseState();
+        state.Set(PauseReason.Locked, true);
+        state.Set(PauseReason.DisplayOff, true);
+
+        state.Set(PauseReason.DisplayOff, false);
+        Assert.True(state.IsPaused(Left));
+        Assert.Contains("Locked", state.ToString());
+
+        state.Set(PauseReason.Locked, false);
+        Assert.False(state.IsPaused(Left));
+    }
+
+    [Fact]
     public void Config_PauseMustBeAnObject()
     {
         var log = new MemoryLog();

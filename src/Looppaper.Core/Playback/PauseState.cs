@@ -10,6 +10,24 @@ public enum PauseReason
 
     /// <summary>Windows reports a full-screen Direct3D app (a game) or presentation mode.</summary>
     ExclusiveFullscreen = 1,
+
+    /// <summary>The session is locked.</summary>
+    Locked = 2,
+
+    /// <summary>The session is disconnected (fast user switching, Remote Desktop).</summary>
+    Disconnected = 4,
+
+    /// <summary>The PC is going to sleep.</summary>
+    Suspended = 8,
+
+    /// <summary>The display is off.</summary>
+    DisplayOff = 16,
+
+    /// <summary>Battery saver (Windows 10) or Energy Saver (Windows 11) is on.</summary>
+    BatterySaver = 32,
+
+    /// <summary>Running on battery.</summary>
+    OnBattery = 64,
 }
 
 /// <summary>

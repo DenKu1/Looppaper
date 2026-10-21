@@ -37,6 +37,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     private readonly IntPtr _backgroundBrush;
     private readonly FrameCache _frame = new();
     private ControlWindow? _control;
+    private PowerWatcher? _power;
     private WallpaperWindow? _window;
     private DesktopHost? _host;
     private PictureController? _pictures;
@@ -63,6 +64,16 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         {
             return 1;
         }
+
+        _power = new PowerWatcher(_control.Handle, _log);
+        _power.Changed += (reason, active) =>
+        {
+            if (_config.Pause.Allows(reason) && _pause.Set(reason, active))
+            {
+                ApplyPause();
+            }
+        };
+        _power.Resumed += RestartVideoAfterSleep;
 
         if (_config.Pause.OnFullscreen)
         {
@@ -143,6 +154,8 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
             case User32.WM_TIMER when (nuint)wParam == FullscreenTimerId:
                 CheckFullscreen();
                 return true;
+            case Power.WM_WTSSESSION_CHANGE or Power.WM_POWERBROADCAST:
+                return _power?.OnMessage(msg, wParam, lParam) == true;
             case PictureController.WM_FRAME_READY when _pictures is null:
                 // A picture finished rendering after the switch to video (or a rebuild); drop it.
                 Gdi32.DeleteObject(lParam);
@@ -229,6 +242,19 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
         {
             ApplyPause();
         }
+    }
+
+    /// <summary>The Media Engine can lose its GPU device across sleep; start the video again to be safe.</summary>
+    private void RestartVideoAfterSleep()
+    {
+        if (_video is null || _recovering || _shutDown)
+        {
+            return;
+        }
+
+        _log.Info("Restarting the video after sleep");
+        StopContent();
+        StartContent();
     }
 
     /// <summary>Applies <see cref="_pause"/> to whatever is shown.</summary>
@@ -406,6 +432,7 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
             _log.Warn("Video compression did not stop within 5 seconds");
         }
 
+        _power?.Dispose();
         StopContent();
         _window?.Destroy();
         _window = null;
