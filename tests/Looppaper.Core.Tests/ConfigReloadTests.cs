@@ -34,6 +34,21 @@ public class ConfigReloadTests
     }
 
     [Fact]
+    public void WrittenDefaults_IncludeTheEpic2Settings()
+    {
+        var text = ConfigLoader.Serialize(new LooppaperConfig());
+        var log = new MemoryLog();
+
+        var config = ConfigLoader.Parse(text, log);
+
+        Assert.Contains("\"watchdog\": true", text, StringComparison.Ordinal);
+        Assert.Contains("\"onFullscreen\": true", text, StringComparison.Ordinal);
+        Assert.Contains("\"onBattery\": false", text, StringComparison.Ordinal);
+        Assert.Empty(log.Warnings);
+        Assert.True(config.Pause.OnLock);
+    }
+
+    [Fact]
     public void TryLoad_MissingFile_IsNotCreated()
     {
         using var dir = new TempDir();

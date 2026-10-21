@@ -26,8 +26,8 @@ No admin rights and no .NET install needed.
 3. Put an `.mp4` video, or `.jpg` / `.jpeg` / `.png` pictures, into the collection folder:
    `Pictures\Looppaper` (standard) or `collection` inside the install folder (everything in one folder).
    If the folder has a video (and video is enabled) it plays looped, muted by default; otherwise the
-   pictures are shown. Looppaper rescans the folder at every slideshow step; after adding a video or
-   editing `config.json`, restart it (`Looppaper.exe --stop`, then start it again).
+   pictures are shown. Looppaper watches the folder and `config.json`: added, replaced or removed
+   files and edited settings apply straight away, without a restart.
 
 To remove it: `powershell -ExecutionPolicy Bypass -File .\uninstall.ps1`. It removes the program,
 cache and logs; add `-RemoveSettings` to also delete `config.json`, and `-RemoveCollection` to delete
@@ -71,13 +71,41 @@ per-frame work itself. Each monitor gets its own video window (only the first pl
 video cannot be played, Looppaper logs why and falls back to the pictures. When Looppaper stops,
 the window is removed and your normal wallpaper is redrawn.
 
+It keeps going when the desktop changes under it:
+
+- **Explorer restarts** (crash, `taskkill`, some updates): a hidden window of Looppaper's own receives
+  Windows' `TaskbarCreated` message, finds the new desktop and recreates the wallpaper window in it.
+  If Explorer is not running yet (an early sign-in), Looppaper waits for it.
+- **Monitors, resolution or DPI change**: once the change settles (about 1.5 s) the window is resized
+  to the new virtual screen and the video players / picture are rebuilt for each monitor.
+- **`config.json` or the collection folder changes**: the new settings or files are picked up (after
+  0.5 s / 2 s of quiet). A half-written or invalid `config.json` is ignored and the current settings stay;
+  command-line overrides still apply on top of the reloaded file. `watchdog` applies at the next start.
+- **It crashes**: a small watchdog copy (`Looppaper.exe ... --watchdog <pid>`, ~6 MB of RAM, idle) waits
+  for the wallpaper process. If it ends without a clean stop, the Windows wallpaper is re-applied; after a
+  real crash (not when you end it in Task Manager) Looppaper is started again, at most 3 times in 10 minutes.
+
+It also stops working when nobody can see it. Paused video keeps its last frame (the GPU's video decoder
+goes idle) and the slideshow holds, then continues with the rest of its interval:
+
+- while a **full-screen app or game** covers a monitor (checked every 2 s; only that monitor's video
+  pauses, and everything pauses for an exclusive full-screen game or presentation mode). Maximized
+  windows still show the taskbar and do not count;
+- while the **session is locked** or disconnected (fast user switching, Remote Desktop);
+- while the **display is off** and during **sleep** (the video is restarted after waking up);
+- while **battery saver / Energy Saver** is on, and optionally whenever the PC **runs on battery**.
+
+Each of these can be turned off in the `pause` section (display off and sleep always pause).
+
 ## Resource budget
 
 Pictures: **~0% CPU while idle** (nothing runs between slideshow steps) and **under 60 MB of RAM**.
 Video: **a few percent of one core**, with decoding on the GPU's video engine; the Direct3D and Media
 Foundation stack needs **~110–140 MB of RAM**. Looppaper runs at *below normal* priority, opts into
 Windows EcoQoS (efficiency mode), and after each picture change compacts its heap and trims its
-working set.
+working set. While paused (full-screen app, locked, display off, battery saver) the video uses no
+decoder time at all. The crash watchdog is a second, idle process of ~6 MB working set / ~8 MB private
+memory (`"watchdog": false` turns it off).
 
 Measured with the published single-file exe on Windows 11 25H2 (build 26200), AMD Ryzen 7 7700,
 one 2560x1440 monitor:
@@ -113,12 +141,19 @@ in the log); a file that is not valid JSON is ignored and the defaults are used.
   "backgroundColor": "#000000", // shown around "fit"/"center" pictures and when there is nothing to show
   "maxPictureSizeMb": 50,       // larger pictures are skipped (cap 200)
   "checkForUpdates": false,     // true = check GitHub once at start for a newer release and log it (never downloads)
+  "watchdog": true,             // restore the Windows wallpaper (and restart after a crash) if Looppaper ends unexpectedly
   "ffmpegPath": null,          // ffmpeg.exe or its folder; null = search PATH, winget, scoop, Chocolatey (only needed for conversion and compression)
   "video": {
     "enabled": true,            // false = always show pictures
     "file": null,               // file name in the collection, or a full path; null = first .mp4 in the collection
     "volume": 0,                // 0..100; 0 = muted
     "compress": true            // compress each video once (into the cache) before playing it; see "Video compression"
+  },
+  "pause": {                    // pause the video and the slideshow while nobody can see them (display off and sleep always do)
+    "onFullscreen": true,       // a full-screen app or game covers the monitor
+    "onLock": true,             // the session is locked or disconnected
+    "onBatterySaver": true,     // battery saver / Energy Saver is on
+    "onBattery": false          // the PC runs on battery
   },
   "wallpaperEngine": {
     "workshopPath": null,       // Wallpaper Engine Workshop folder (...\\steamapps\\workshop\\content\\431960); null = found through Steam

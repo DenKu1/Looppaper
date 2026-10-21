@@ -55,7 +55,7 @@ Pausing covers both the video (Media Engine paused, so the GPU decoder idles) an
 - [x] 2.6 Crash watchdog: a small `--watchdog` copy waits for the wallpaper process; if it ends without a clean stop
       (crash, killed) the original Windows wallpaper is re-applied, and after a crash Looppaper is started again (at
       most 3 times in 10 minutes). Config `watchdog` (default true).
-- [ ] 2.7 Tests and README.
+- [x] 2.7 Tests and README.
 
 ## Shared groundwork for Epics 8 and 9
 
