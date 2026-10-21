@@ -147,6 +147,25 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void CheckForUpdates_IsOffByDefaultAndWritten()
+    {
+        var config = new LooppaperConfig();
+
+        Assert.False(config.CheckForUpdates);
+        Assert.Contains("\"checkForUpdates\": false", ConfigLoader.Serialize(config), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Parse_ReadsCheckForUpdates()
+    {
+        var log = new MemoryLog();
+
+        Assert.True(ConfigLoader.Parse("""{ "checkForUpdates": true }""", log).CheckForUpdates);
+        Assert.False(ConfigLoader.Parse("""{ "checkForUpdates": "yes" }""", log).CheckForUpdates);
+        Assert.Single(log.Warnings);
+    }
+
+    [Fact]
     public void LoadOrCreate_DoesNotOverwriteBrokenFile()
     {
         using var dir = new TempDir();

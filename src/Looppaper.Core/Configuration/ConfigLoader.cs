@@ -164,6 +164,13 @@ public static class ConfigLoader
                     }
 
                     break;
+                case "checkforupdates":
+                    if (ReadBool(value, name, log, out var checkForUpdates))
+                    {
+                        config.CheckForUpdates = checkForUpdates;
+                    }
+
+                    break;
                 case "ffmpegpath":
                     if (ReadString(value, name, log, allowNull: true, out var ffmpeg))
                     {

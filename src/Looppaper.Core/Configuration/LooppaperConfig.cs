@@ -49,6 +49,12 @@ public sealed class LooppaperConfig
 
     public int MaxPictureSizeMb { get; set; } = DefaultMaxPictureSizeMb;
 
+    /// <summary>
+    /// Opt-in: when true the wallpaper asks GitHub once at start whether a newer release exists and logs it.
+    /// Nothing is downloaded or installed.
+    /// </summary>
+    public bool CheckForUpdates { get; set; }
+
     public VideoConfig Video { get; set; } = new();
 
     /// <summary>ffmpeg.exe or its folder; null means search PATH, winget, scoop, Chocolatey and common folders.</summary>

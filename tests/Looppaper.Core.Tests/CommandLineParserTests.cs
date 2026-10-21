@@ -43,6 +43,7 @@ public class CommandLineParserTests
     [InlineData("--stop")]
     [InlineData("--install-startup")]
     [InlineData("--uninstall-startup")]
+    [InlineData("--check-update")]
     public void Commands(string arg)
     {
         var options = CommandLineParser.Parse([arg]);
@@ -61,10 +62,19 @@ public class CommandLineParserTests
     [InlineData("--folder", "--shuffle")]
     [InlineData("--folder=")]
     [InlineData("--stop=now")]
+    [InlineData("--check-update=yes")]
     [InlineData("--install-startup", "--uninstall-startup")]
     public void InvalidInputReportsErrors(params string[] args)
     {
         Assert.NotEmpty(CommandLineParser.Parse(args).Errors);
+    }
+
+    [Fact]
+    public void CheckUpdate_IsParsedAndListedInHelp()
+    {
+        Assert.True(CommandLineParser.Parse(["--check-update"]).CheckUpdate);
+        Assert.False(CommandLineParser.Parse([]).CheckUpdate);
+        Assert.Contains("--check-update", CommandLineOptions.HelpText, StringComparison.Ordinal);
     }
 
     [Fact]

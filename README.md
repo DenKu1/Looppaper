@@ -80,6 +80,7 @@ in the log); a file that is not valid JSON is ignored and the defaults are used.
   "scaling": "fill",            // "fill" | "fit" | "stretch" | "center"
   "backgroundColor": "#000000", // shown around "fit"/"center" pictures and when there is nothing to show
   "maxPictureSizeMb": 50,       // larger pictures are skipped (cap 200)
+  "checkForUpdates": false,     // true = check GitHub once at start for a newer release and log it (never downloads)
   "ffmpegPath": null,          // ffmpeg.exe or its folder; null = search PATH, winget, scoop, Chocolatey (only needed for conversion)
   "video": {
     "enabled": true,            // false = always show pictures
@@ -117,6 +118,7 @@ Looppaper.exe [options]
   --install-startup      Start Looppaper when you sign in (current user)
   --uninstall-startup    Remove Looppaper from sign-in startup
   --we-list              List the Wallpaper Engine Workshop wallpapers downloaded on this PC
+  --check-update         Check GitHub once for a newer release and print the result (never downloads)
   --help                 Show this help
 ```
 
@@ -158,6 +160,20 @@ until you subscribe to or remove a wallpaper. Statuses:
 `%LOCALAPPDATA%\Looppaper\logs\looppaper.log` (rolls over at 1 MB, one previous file kept as `looppaper.log.1`).
 
 ## Releases & updates
+
+### Update check
+
+Looppaper never updates itself. `Looppaper.exe --check-update` asks GitHub once
+(`https://api.github.com/repos/DenKu1/Looppaper/releases/latest`) and prints whether a newer release
+exists, with its link; it also writes the result to the log. With `"checkForUpdates": true` in
+`config.json` (off by default) the wallpaper does the same once at start on a background thread with a
+10-second timeout and only logs the result; a failed check never affects the wallpaper. Versions are
+compared semantically (`v0.10.0` > `v0.9.0`, `0.2.0-beta.1` < `0.2.0`); pre-releases are only offered
+to someone already running a pre-release. Nothing is downloaded or installed: get the new zip from the
+release page and run its `install.ps1` again.
+
+The check is anonymous, so it cannot see the releases of a private repository: GitHub answers 404 and
+Looppaper reports "No public releases found" (not an error). It works once the repository is public.
 
 ### Cutting a release
 

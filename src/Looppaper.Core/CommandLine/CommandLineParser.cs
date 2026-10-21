@@ -132,6 +132,10 @@ public static class CommandLineParser
                     NoValue();
                     options.Help = true;
                     break;
+                case "check-update":
+                    NoValue();
+                    options.CheckUpdate = true;
+                    break;
                 default:
                     options.Errors.Add($"Unknown option '{arg}'.");
                     break;

@@ -3,6 +3,7 @@ using Looppaper.Core;
 using Looppaper.Core.CommandLine;
 using Looppaper.Core.Configuration;
 using Looppaper.Core.Logging;
+using Looppaper.Core.Updates;
 using Looppaper.Desktop;
 using Looppaper.WallpaperEngine;
 
@@ -35,6 +36,11 @@ internal static class Program
         if (options.InstallStartup || options.UninstallStartup)
         {
             return ConfigureStartup(options.InstallStartup, log);
+        }
+
+        if (options.CheckUpdate)
+        {
+            return CheckUpdate(log);
         }
 
         var configPath = options.ConfigPath is null ? AppPaths.DefaultConfigFile : AppPaths.ExpandPath(options.ConfigPath);
@@ -76,6 +82,11 @@ internal static class Program
         }
 
         ResourceSaver.Apply(log);
+        if (config.CheckForUpdates)
+        {
+            UpdateCheck.StartInBackground(log);
+        }
+
         var app = new WallpaperApp(config, log);
         instance.ListenForStop(app.RequestStop);
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -159,6 +170,14 @@ internal static class Program
         log.Info($"Started background instance (pid {child.Id})");
         ConsoleOutput.WriteLine($"Looppaper is running in the background (pid {child.Id}). Stop it with: Looppaper.exe --stop");
         return 0;
+    }
+
+    private static int CheckUpdate(ILog log)
+    {
+        ConsoleOutput.WriteLine($"Looppaper {UpdateCheck.CurrentVersion}: checking {UpdateChecker.ReleasesPageUrl} ...");
+        var result = UpdateCheck.Run(log);
+        ConsoleOutput.WriteLine(result.Message);
+        return result.Status == UpdateStatus.Failed ? 1 : 0;
     }
 
     private static int Stop(ILog log)

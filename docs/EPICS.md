@@ -106,7 +106,10 @@ asking first.
 - [x] 6.3 Optional code signing in the release workflow: `signtool` with a timestamp server when the secrets
       `SIGNING_CERT_BASE64` + `SIGNING_CERT_PASSWORD` exist (skipped otherwise), and a commented Azure Trusted
       Signing alternative. Needs an OV/EV certificate or an Azure Trusted Signing account (owner's decision).
-- [ ] 6.4 Opt-in update check (`checkForUpdates`, `--check-update`).
+- [x] 6.4 Opt-in update check: `"checkForUpdates": false` by default (true = check once at start in the
+      background and log it) and `--check-update` (check once, print). Semantic version compare and release
+      JSON parsing in Core with tests; never downloads. A private repository's releases are invisible without
+      a token, so it reports "no public releases found" until the repository is public.
 
 ## Epic 7 — Optional control surface
 
