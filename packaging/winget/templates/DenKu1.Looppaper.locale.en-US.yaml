@@ -10,8 +10,8 @@ PublisherSupportUrl: https://github.com/DenKu1/Looppaper/issues
 Author: DenKu1
 PackageName: Looppaper
 PackageUrl: https://github.com/DenKu1/Looppaper
-# Replace with the SPDX id (e.g. MIT) and add LicenseUrl once the repository has a LICENSE file.
-License: Proprietary
+License: MIT
+LicenseUrl: https://github.com/DenKu1/Looppaper/blob/main/LICENSE
 ShortDescription: Lightweight live-wallpaper engine for Windows with no UI (looping video or picture slideshow).
 Description: |-
   Looppaper puts a looping .mp4 video, one fixed picture, or a slideshow of pictures from a folder behind
