@@ -95,13 +95,14 @@ asking first.
 - [x] 9.4 Use the result: verify it is under 100 MB, then play it and record the mapping so it is not
       compressed again.
 - [x] 9.5 Tests and README.
-## Epic 10 — One install folder & compression by default
+## Epic 10 — Install folder choice & compression by default
 
-- [x] 10.1 Portable layout by default: config, collection, cache, compression records and logs all live in the
-      install folder (a `looppaper.portable` marker next to the exe switches it on; `install.ps1` creates it).
-      `install.ps1 -Layout Standard` keeps the old Windows-style split. The first portable start copies the old
-      config, cache, compression records and default collection (originals kept). Uninstall keeps settings and
-      the collection unless asked to remove them.
+- [x] 10.1 "Everything in one folder" layout: config, collection, cache, compression records and logs in the
+      install folder (a `looppaper.portable` marker next to the exe switches it on). The first start in that layout
+      copies the old config, cache, compression records and default collection (originals kept). Uninstall keeps
+      settings and the collection unless asked to remove them.
+- [x] 10.1b The installer asks which layout to use; the default is the standard Windows-style split (config in
+      %APPDATA%, collection in Pictures, cache and logs in %LOCALAPPDATA%); `-Layout Standard|Portable` skips the question.
 - [ ] 10.2 Compress every video by default (`video.compress`, default true), telling the user instead of asking;
       no 100 MB refusal any more — a compressed video still over 100 MB only gets a performance warning.
 ## Epic 6 — Distribution

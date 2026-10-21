@@ -12,7 +12,7 @@ public sealed class CommandLineOptions
 
         Usage: Looppaper.exe [options]
 
-          --config <path>        Use this config file instead of config.json in the install folder
+          --config <path>        Use this config file instead of the default config.json
           --folder <path>        Collection folder with pictures and videos
           --picture <file>       Show one picture (file name in the collection or full path); implies --mode single and --no-video
           --interval <seconds>   Slideshow interval (5..604800)
@@ -34,8 +34,8 @@ public sealed class CommandLineOptions
           --help                 Show this help
 
         Without a command, Looppaper starts the wallpaper; from a terminal it continues in the background.
-        Options accept "--name value" or "--name=value". Logs: logs\looppaper.log in the install folder
-        (standard layout without looppaper.portable next to the exe: %APPDATA% / %LOCALAPPDATA%\Looppaper).
+        Options accept "--name value" or "--name=value". Files: config.json in %APPDATA%\Looppaper, logs and cache in
+        %LOCALAPPDATA%\Looppaper (or all next to Looppaper.exe when looppaper.portable is there).
         """;
 
     public string? ConfigPath { get; set; }

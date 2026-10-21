@@ -5,30 +5,32 @@
 .DESCRIPTION
     Copies Looppaper.exe to the install folder (default %LOCALAPPDATA%\Programs\Looppaper),
     registers Looppaper to start when you sign in, and starts it. Run again to upgrade.
+    Without -Layout it asks where Looppaper should keep its files:
 
-    Layout Portable (default): everything lives in the install folder:
-        Looppaper.exe, config.json, collection\ (your pictures and videos), cache\, logs\
-    On its first start Looppaper copies settings, cached videos and the pictures/videos of the old
-    Pictures\Looppaper folder from a previous standard install (the originals are kept).
-
-    Layout Standard: the Windows-style split:
+    Standard (default): the usual Windows folders:
         config in %APPDATA%\Looppaper, cache and logs in %LOCALAPPDATA%\Looppaper,
         collection in %USERPROFILE%\Pictures\Looppaper.
+
+    Portable: everything lives in the install folder:
+        Looppaper.exe, config.json, collection\ (your pictures and videos), cache\, logs\
+    On its first start Looppaper copies settings, cached videos and the pictures/videos of the
+    Pictures\Looppaper folder from the standard folders (the originals are kept).
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File .\install.ps1 -Layout Standard
+    powershell -ExecutionPolicy Bypass -File .\install.ps1 -Layout Portable
 #>
 [CmdletBinding()]
 param(
     # Path to Looppaper.exe. Defaults to the exe next to this script, or ..\publish\Looppaper.exe in a source checkout.
     [string]$Source,
 
-    # Portable (default): everything in the install folder. Standard: config, cache and collection in the usual Windows folders.
-    [ValidateSet('Portable', 'Standard')]
-    [string]$Layout = 'Portable',
+    # Standard (default): config, cache and collection in the usual Windows folders. Portable: everything in the install folder.
+    # Leave it out to be asked.
+    [ValidateSet('Standard', 'Portable')]
+    [string]$Layout,
 
     # Where Looppaper.exe goes (and, in the portable layout, all of its files).
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'Programs\Looppaper')
@@ -45,6 +47,20 @@ if (-not $Source) {
     if (-not $Source) {
         throw "Looppaper.exe not found next to this script. Build it with: dotnet publish src/Looppaper -p:PublishProfile=win-x64"
     }
+}
+
+if (-not $Layout) {
+    Write-Host 'Where should Looppaper keep its files?'
+    Write-Host '  1) Standard (default): settings in %APPDATA%\Looppaper, pictures and videos in Pictures\Looppaper,'
+    Write-Host '     cache and logs in %LOCALAPPDATA%\Looppaper'
+    Write-Host "  2) Everything in one folder: $InstallDir (settings, collection, cache and logs next to Looppaper.exe)"
+    $answer = $null
+    try {
+        $answer = Read-Host 'Choose 1 or 2 [1]'
+    } catch {
+        # Not interactive (e.g. -NonInteractive): use the default.
+    }
+    $Layout = if ("$answer".Trim() -eq '2') { 'Portable' } else { 'Standard' }
 }
 
 $exe = Join-Path $InstallDir 'Looppaper.exe'
