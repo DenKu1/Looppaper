@@ -1,5 +1,6 @@
 using System.Text;
 using Looppaper.Core.CommandLine;
+using Looppaper.Core.Compression;
 using Looppaper.Core.Tools;
 using Looppaper.Core.WallpaperEngine;
 
@@ -181,7 +182,7 @@ public class SceneConversionTests
     public void BitrateKeepsTheFileUnderTheLimit()
     {
         // A short 1440p30 clip is limited by quality, a long one by the 95 MB budget.
-        Assert.Equal((long)(2560 * 1440 * 30 * 0.15), SceneCapture.Bitrate(30, 2560, 1440, 30));
+        Assert.Equal((long)(2560 * 1440 * 30 * CompressionPlanner.BitsPerPixel), SceneCapture.Bitrate(30, 2560, 1440, 30)); // same quality target as video compression
         var longClip = SceneCapture.Bitrate(120, 3840, 2160, 60);
         Assert.True(longClip * 120 / 8 <= SceneCapture.TargetBytes);
         Assert.True(SceneCapture.TargetBytes < SceneCapture.MaxBytes);

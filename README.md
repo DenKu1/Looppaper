@@ -251,7 +251,8 @@ the recording and closes it again afterwards; while it runs it may show its own 
 - Picture: your primary monitor's resolution at up to 30 fps; a scene with a different aspect ratio is
   rendered whole and cropped at the alignment position you set in Wallpaper Engine.
 - Encoder: the first hardware encoder that works (NVIDIA NVENC, AMD AMF, Intel QSV), else the CPU (x264),
-  at a bitrate that aims to keep the file under 100 MB (a larger result is kept, with a size warning).
+  at the same quality target as [video compression](#video-compression) (so the recording is already compressed;
+  it is not encoded a second time), aiming to keep the file under 100 MB (a larger result is kept, with a size warning).
 - Result: `%LOCALAPPDATA%\Looppaper\cache\we-<Workshop id>-<modified time>.mp4`. When the Workshop item is
   updated it is recorded again; deleting the cache folder is always safe. Ctrl+C cancels and saves nothing.
 

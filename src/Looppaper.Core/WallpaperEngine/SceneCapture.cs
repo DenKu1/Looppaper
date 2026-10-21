@@ -86,8 +86,8 @@ public static partial class SceneCapture
     /// <summary>Above this a converted video is shrunk once more (and still plays, with a size warning, if it stays larger).</summary>
     public const long MaxBytes = Compression.VideoSize.WarningMb * MediaScanner.BytesPerMb;
 
-    /// <summary>Bits per pixel per frame at most; plenty for a wallpaper and keeps short loops small.</summary>
-    public const double MaxBitsPerPixel = 0.15;
+    /// <summary>Bits per pixel per frame at most: the same quality target as video compression, so a converted scene is already compressed (no second encode).</summary>
+    public const double MaxBitsPerPixel = Compression.CompressionPlanner.BitsPerPixel;
 
     private static readonly int[] StandardFps = [24, 30, 48, 60, 90, 120, 144, 165, 180, 240];
 

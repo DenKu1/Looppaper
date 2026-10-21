@@ -108,6 +108,8 @@ asking first.
       %APPDATA%, collection in Pictures, cache and logs in %LOCALAPPDATA%); `-Layout Standard|Portable` skips the question.
 - [x] 10.2 Compress every video by default (`video.compress`, default true), telling the user instead of asking;
       no 100 MB refusal any more — a compressed video still over 100 MB only gets a performance warning.
+- [x] 10.3 Scene / web conversions record at the same quality target as video compression, so they are already
+      compressed and never encoded twice.
 ## Epic 6 — Distribution
 
 - [x] 6.1 Release workflow: pushing a tag `vX.Y.Z` builds, tests and publishes with the tag's version, packs
