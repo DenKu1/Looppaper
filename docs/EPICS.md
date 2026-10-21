@@ -78,6 +78,9 @@ Engine itself is needed for converting scene wallpapers.
 
 ## Epic 9 — Oversized video compression
 
+> Superseded by 10.2: there is no 100 MB refusal any more and Looppaper no longer asks; it compresses every
+> video by default and tells the person, warning only when a compressed video is still over 100 MB.
+
 Videos are limited to 100 MB. Instead of only refusing a larger one, offer to compress it — always
 asking first.
 
@@ -103,7 +106,7 @@ asking first.
       settings and the collection unless asked to remove them.
 - [x] 10.1b The installer asks which layout to use; the default is the standard Windows-style split (config in
       %APPDATA%, collection in Pictures, cache and logs in %LOCALAPPDATA%); `-Layout Standard|Portable` skips the question.
-- [ ] 10.2 Compress every video by default (`video.compress`, default true), telling the user instead of asking;
+- [x] 10.2 Compress every video by default (`video.compress`, default true), telling the user instead of asking;
       no 100 MB refusal any more — a compressed video still over 100 MB only gets a performance warning.
 ## Epic 6 — Distribution
 

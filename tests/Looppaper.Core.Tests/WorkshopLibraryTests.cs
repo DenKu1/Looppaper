@@ -80,7 +80,7 @@ public class WorkshopLibraryTests
         Assert.Equal(["100", "102", "101", "201", "200", "300", "400", "500"], items.Select(i => i.Id));
         Assert.Equal(Enumerable.Range(1, 8), items.Select(i => i.Number));
         var byId = items.ToDictionary(i => i.Id);
-        Assert.Equal(WorkshopItemStatus.TooLarge, byId["100"].Status);
+        Assert.Equal(WorkshopItemStatus.Ready, byId["100"].Status); // no size refusal: large videos are compressed
         Assert.Equal(101 * Mb, byId["100"].SizeBytes);
         Assert.Equal(WorkshopItemStatus.Ready, byId["101"].Status);
         Assert.Equal(Path.Combine(workshop, "101", "small.mp4"), byId["101"].PlayableFile);
@@ -101,7 +101,7 @@ public class WorkshopLibraryTests
         using var dir = new TempDir();
         var folder = Item(dir.Path, "1", """{ "type": "video", "file": "..\\..\\secret.mp4" }""");
 
-        var item = WorkshopLibrary.Describe("1", folder, ProjectFile.Read(folder)!, dir.Path, 100 * Mb);
+        var item = WorkshopLibrary.Describe("1", folder, ProjectFile.Read(folder)!, dir.Path);
 
         Assert.Equal(WorkshopItemStatus.Unsupported, item.Status);
         Assert.Null(item.FilePath);
@@ -129,7 +129,7 @@ public class WorkshopLibraryTests
         var items = new[]
         {
             Fake(1, "2530355779", "Astronaut", 8_500_000, WorkshopItemStatus.NeedsConversion),
-            Fake(10, "42", "Floating In Space", 218 * Mb, WorkshopItemStatus.TooLarge, WorkshopItemType.Video),
+            Fake(10, "42", "Floating In Space", 218 * Mb, WorkshopItemStatus.Ready, WorkshopItemType.Video),
         };
 
         var lines = WorkshopLibrary.FormatTable(items).ToList();
@@ -137,7 +137,7 @@ public class WorkshopLibraryTests
         Assert.Equal(3, lines.Count);
         Assert.Equal(" #  Workshop id  Type       Size  Status            Title", lines[0]);
         Assert.Equal(" 1  2530355779   scene    8.1 MB  needs conversion  Astronaut", lines[1]);
-        Assert.Equal("10  42           video  218.0 MB  too large         Floating In Space", lines[2]);
+        Assert.Equal("10  42           video  218.0 MB  ready             Floating In Space", lines[2]);
     }
 
     [Fact]

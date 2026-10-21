@@ -6,74 +6,86 @@ namespace Looppaper.Core.Tests;
 
 public class CompressionPlannerTests
 {
-    private const long Limit = 100 * MediaScanner.BytesPerMb;
-
-    private static MediaInfo Info(double seconds, int width = 1920, int height = 1080, bool audio = true) =>
-        new(TimeSpan.FromSeconds(seconds), width, height, "h264", 30, audio, null, null);
+    private static MediaInfo Info(double seconds, int width = 1920, int height = 1080, bool audio = true, long? bitRate = null, long? size = null, double fps = 30) =>
+        new(TimeSpan.FromSeconds(seconds), width, height, "h264", fps, audio, bitRate, size);
 
     [Fact]
-    public void BitrateFitsUnderTheLimitWithMargin()
+    public void BitrateComesFromSizeAndFrameRateNotFromALimit()
     {
-        var plan = CompressionPlanner.Plan(Info(60), Limit, null, out var problem);
+        var plan = CompressionPlanner.Plan(Info(60), null, out var problem);
 
         Assert.Null(problem);
         Assert.NotNull(plan);
         Assert.Equal(CompressionPlanner.AudioKbps, plan.AudioKbps);
 
-        // 100 MiB * 0.9 * 8 / 60 s = 12582 kbit/s in total, minus audio.
-        Assert.Equal(12_582 - 128, plan.VideoKbps);
-        Assert.True(plan.EstimatedBytes < Limit);
-        Assert.True(plan.EstimatedBytes > Limit * 0.85);
+        // 0.10 bits per pixel * 1920 * 1080 * 30 fps = 6220 kbit/s.
+        Assert.Equal(6_220, plan.VideoKbps);
     }
 
     [Fact]
-    public void LongerVideoGetsLowerBitrate()
+    public void AnyLengthCanBePlanned()
     {
-        var short1 = CompressionPlanner.Plan(Info(60), Limit, null, out _)!;
-        var long1 = CompressionPlanner.Plan(Info(600), Limit, null, out _)!;
+        var plan = CompressionPlanner.Plan(Info(4 * 3600), null, out var problem);
 
-        Assert.True(long1.VideoKbps < short1.VideoKbps / 9);
-    }
-
-    [Fact]
-    public void ShortVideoIsCappedAtAReasonableBitrate()
-    {
-        var plan = CompressionPlanner.Plan(Info(5), Limit, null, out _)!;
-
-        Assert.Equal(CompressionPlanner.MaxVideoKbps, plan.VideoKbps);
-    }
-
-    [Fact]
-    public void AudioIsDroppedOnlyWhenNeeded()
-    {
-        // ~1890 s: total budget ~400 + a bit; with audio the video would get less than the minimum.
-        var plan = CompressionPlanner.Plan(Info(1700), Limit, null, out _);
-
+        Assert.Null(problem);
         Assert.NotNull(plan);
-        Assert.False(plan.KeepsAudio);
-        Assert.True(plan.AudioDropped);
-        Assert.Contains("audio removed", plan.Describe(), StringComparison.Ordinal);
-
-        var silent = CompressionPlanner.Plan(Info(60, audio: false), Limit, null, out _)!;
-        Assert.False(silent.AudioDropped);
-        Assert.Equal(12_582, silent.VideoKbps);
+        Assert.True(VideoSize.IsLarge(plan.EstimatedBytes)); // long videos may stay large; they get a warning, not a refusal
     }
 
     [Fact]
-    public void TooLongVideoCannotBePlanned()
+    public void NeverSpendsMoreBitsThanTheOriginal()
     {
-        var plan = CompressionPlanner.Plan(Info(4 * 3600), Limit, null, out var problem);
+        // A 3 Mbit/s original keeps at most its own video bitrate (3000 - 128 audio).
+        var plan = CompressionPlanner.Plan(Info(60, bitRate: 3_000_000), null, out _)!;
 
-        Assert.Null(plan);
-        Assert.Contains("too long", problem, StringComparison.Ordinal);
+        Assert.Equal(3_000 - 128, plan.VideoKbps);
+    }
+
+    [Fact]
+    public void HighFrameRateGetsMoreBitsButIsCapped()
+    {
+        var at60 = CompressionPlanner.Plan(Info(60, fps: 60), null, out _)!;
+        var at240 = CompressionPlanner.Plan(Info(60, fps: 240), null, out _)!;
+
+        Assert.Equal(12_441, at60.VideoKbps);
+        Assert.Equal(at60.VideoKbps, at240.VideoKbps); // frame rate counted up to 60
+    }
+
+    [Fact]
+    public void SilentVideoHasNoAudioTrack()
+    {
+        var plan = CompressionPlanner.Plan(Info(60, audio: false), null, out _)!;
+
+        Assert.False(plan.KeepsAudio);
+        Assert.DoesNotContain("audio", plan.Describe(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CompactOriginalIsNotWorthCompressing()
+    {
+        // Already about the size the plan would produce: keep it.
+        var compact = CompressionPlanner.Plan(Info(60, bitRate: 6_000_000, size: 45 * MediaScanner.BytesPerMb), null, out _)!;
+        var bloated = CompressionPlanner.Plan(Info(60, bitRate: 30_000_000, size: 220 * MediaScanner.BytesPerMb), null, out _)!;
+
+        Assert.False(compact.Worthwhile);
+        Assert.True(bloated.Worthwhile);
+    }
+
+    [Fact]
+    public void ScalingDownIsAlwaysWorthwhile()
+    {
+        var plan = CompressionPlanner.Plan(Info(60, 3840, 2160, bitRate: 2_000_000, size: 15 * MediaScanner.BytesPerMb), new PixelSize(2560, 1440), out _)!;
+
+        Assert.True(plan.Scaled);
+        Assert.True(plan.Worthwhile);
     }
 
     [Fact]
     public void MissingDurationOrVideoCannotBePlanned()
     {
-        Assert.Null(CompressionPlanner.Plan(Info(60) with { Duration = null }, Limit, null, out var p1));
+        Assert.Null(CompressionPlanner.Plan(Info(60) with { Duration = null }, null, out var p1));
         Assert.Contains("length", p1, StringComparison.Ordinal);
-        Assert.Null(CompressionPlanner.Plan(Info(60, 0, 0), Limit, null, out var p2));
+        Assert.Null(CompressionPlanner.Plan(Info(60, 0, 0), null, out var p2));
         Assert.Contains("video stream", p2, StringComparison.Ordinal);
     }
 
@@ -94,7 +106,7 @@ public class CompressionPlannerTests
     [Fact]
     public void PlanCarriesTheScaledSize()
     {
-        var plan = CompressionPlanner.Plan(Info(60, 3840, 2160), Limit, new PixelSize(2560, 1440), out _)!;
+        var plan = CompressionPlanner.Plan(Info(60, 3840, 2160), new PixelSize(2560, 1440), out _)!;
 
         Assert.True(plan.Scaled);
         Assert.Equal(new PixelSize(2560, 1440), plan.Output);
@@ -102,18 +114,9 @@ public class CompressionPlannerTests
     }
 
     [Fact]
-    public void RetryMarginIsLowerByAtLeastFifteenPercent()
-    {
-        Assert.Equal(0.9 * 0.85, CompressionPlanner.RetryMargin(0.9, Limit + 1, Limit), 3);
-
-        var bigOvershoot = CompressionPlanner.RetryMargin(0.9, Limit * 2, Limit);
-        Assert.True(bigOvershoot < 0.45);
-    }
-
-    [Fact]
     public void DescribeShowsSizeBitrateAndLength()
     {
-        var plan = CompressionPlanner.Plan(Info(65), Limit, null, out _)!;
+        var plan = CompressionPlanner.Plan(Info(65), null, out _)!;
 
         Assert.Matches(@"^about \d+\.\d MB \(1920x1080, \d+\.\d Mbit/s video \+ 128 kbit/s audio, 1:05\)$", plan.Describe());
     }

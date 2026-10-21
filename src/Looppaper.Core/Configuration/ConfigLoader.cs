@@ -232,12 +232,16 @@ public static class ConfigLoader
                     }
 
                     break;
-                case "maxfilesizemb":
-                    if (ReadInt(value, path, log, out var maxSize))
+                case "compress":
+                    if (ReadBool(value, path, log, out var compress))
                     {
-                        video.MaxFileSizeMb = maxSize;
+                        video.Compress = compress;
                     }
 
+                    break;
+                case "maxfilesizemb":
+                    // Older configs: videos used to be refused above this size; now they are compressed instead.
+                    log.Info($"Config: '{path}' is no longer used (videos are compressed instead of refused) and is ignored");
                     break;
                 default:
                     log.Warn($"Config: unknown field '{path}' ignored");

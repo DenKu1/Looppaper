@@ -5,9 +5,9 @@ using Looppaper.Core.Logging;
 namespace Looppaper.Core.Compression;
 
 /// <summary>
-/// Remembers per video file (path + size + last-write time, see <see cref="VideoFileKey"/>) what the
-/// person answered when offered compression, so a "no" is not asked again on every start, and which
-/// compressed copy in the cache replaces it, so it is not compressed again. Kept in a
+/// Remembers per video file (path + size + last-write time, see <see cref="VideoFileKey"/>) which
+/// compressed copy in the cache replaces it (or that the original is already compact), so it is not
+/// compressed again, and whether the person was already told that ffmpeg is missing. Kept in a
 /// small JSON file (<see cref="AppPaths.CompressionStateFile"/>). Every call reads and writes the
 /// file, so the terminal command and the background wallpaper see each other's answers. A missing or
 /// broken file counts as empty; errors are logged, never thrown.
@@ -32,21 +32,22 @@ public sealed class CompressionStore
 
     public string FilePath => _file;
 
-    /// <summary>True when the person said no to compressing this file version.</summary>
-    public bool IsDeclined(VideoFileKey key) => Find(Load(), key)?.Declined == true;
+    /// <summary>True when compressing this file version would not make it smaller, so it plays as it is.</summary>
+    public bool IsKeptAsIs(VideoFileKey key) => Find(Load(), key)?.KeepOriginal == true;
 
-    public void SetDeclined(VideoFileKey key, bool declined) => Update(key, e => e.Declined = declined);
+    public void RecordKeepOriginal(VideoFileKey key) => Update(key, e =>
+    {
+        e.KeepOriginal = true;
+        e.Compressed = null;
+    });
 
     /// <summary>True when the background process already said that ffmpeg is needed for this file version.</summary>
     public bool WasToldFfmpegMissing(VideoFileKey key) => Find(Load(), key)?.FfmpegMissingNotified == true;
 
     public void SetToldFfmpegMissing(VideoFileKey key) => Update(key, e => e.FfmpegMissingNotified = true);
 
-    /// <summary>
-    /// The compressed copy recorded for this file version when it still exists and is within
-    /// <paramref name="limitBytes"/>; otherwise null (and a stale record is dropped).
-    /// </summary>
-    public string? FindCompressed(VideoFileKey key, long limitBytes)
+    /// <summary>The compressed copy recorded for this file version when it still exists; otherwise null (and a stale record is dropped).</summary>
+    public string? FindCompressed(VideoFileKey key)
     {
         var copy = Find(Load(), key)?.Compressed;
         if (copy is null)
@@ -65,14 +66,12 @@ public sealed class CompressionStore
             size = -1;
         }
 
-        if (size > 0 && size <= limitBytes)
+        if (size > 0)
         {
             return copy;
         }
 
-        _log.Warn(size < 0
-            ? $"Compressed copy {copy} of {key.FullPath} is gone; forgetting it"
-            : $"Compressed copy {copy} of {key.FullPath} is {VideoSizeLimit.FormatMb(size)}, not within the limit; forgetting it");
+        _log.Warn($"Compressed copy {copy} of {key.FullPath} is gone; forgetting it");
         Update(key, e => e.Compressed = null);
         return null;
     }
@@ -81,7 +80,7 @@ public sealed class CompressionStore
     public void RecordCompressed(VideoFileKey key, string compressedPath) => Update(key, e =>
     {
         e.Compressed = compressedPath;
-        e.Declined = false;
+        e.KeepOriginal = false;
     });
 
     private static Entry? Find(StoreFile store, VideoFileKey key) =>
@@ -124,7 +123,7 @@ public sealed class CompressionStore
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
         {
-            _log.Warn($"Cannot read {_file}; starting with no remembered answers", ex);
+            _log.Warn($"Cannot read {_file}; starting with no remembered compressed copies", ex);
             return new StoreFile();
         }
     }
@@ -164,14 +163,15 @@ public sealed class CompressionStore
 
         public long LastWriteUtcTicks { get; set; }
 
-        public bool Declined { get; set; }
+        /// <summary>Compressing would not make it smaller; play the original.</summary>
+        public bool KeepOriginal { get; set; }
 
         public bool FfmpegMissingNotified { get; set; }
 
         /// <summary>Full path of the compressed copy in the cache folder.</summary>
         public string? Compressed { get; set; }
 
-        public bool IsEmpty => !Declined && !FfmpegMissingNotified && Compressed is null;
+        public bool IsEmpty => !KeepOriginal && !FfmpegMissingNotified && Compressed is null;
 
         public VideoFileKey ToKey() => new(Path, Size, LastWriteUtcTicks);
     }

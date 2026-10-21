@@ -52,44 +52,38 @@ public class VideoOptionsTests
     }
 
     [Fact]
-    public void VideoSizeLimitIsHundredMbAndCannotBeRaised()
+    public void CompressionIsOnByDefaultAndCanBeTurnedOff()
+    {
+        var log = new MemoryLog();
+
+        Assert.True(new LooppaperConfig().Video.Compress);
+        Assert.False(ConfigLoader.Parse("""{ "video": { "compress": false } }""", log).Video.Compress);
+        Assert.Empty(log.Warnings);
+    }
+
+    [Fact]
+    public void OldSizeLimitSettingIsIgnoredWithoutAWarning()
     {
         var log = new MemoryLog();
         var config = ConfigLoader.Parse("""{ "video": { "maxFileSizeMb": 500 } }""", log);
 
         ConfigValidator.Normalize(config, log);
 
-        Assert.Equal(100, new LooppaperConfig().Video.MaxFileSizeMb);
-        Assert.Equal(100, config.Video.MaxFileSizeMb);
-        Assert.Contains(log.Warnings, w => w.Contains("video.maxFileSizeMb", StringComparison.Ordinal) && w.Contains("using 100", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void LowerVideoSizeLimitIsKept()
-    {
-        var log = new MemoryLog();
-        var config = ConfigLoader.Parse("""{ "video": { "maxFileSizeMb": 40 } }""", log);
-
-        ConfigValidator.Normalize(config, log);
-
-        Assert.Equal(40, config.Video.MaxFileSizeMb);
         Assert.Empty(log.Warnings);
+        Assert.Contains(log.Entries, e => e.Message.Contains("video.maxFileSizeMb", StringComparison.Ordinal) && e.Message.Contains("no longer used", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void VideoOverHundredMbIsNotListed()
+    public void LargeVideosAreListedLikeAnyOther()
     {
         using var dir = new TempDir();
         dir.File("small.mp4", 99 * Media.MediaScanner.BytesPerMb);
-        dir.File("huge.mp4", (100 * Media.MediaScanner.BytesPerMb) + 1);
-        var log = new MemoryLog();
+        dir.File("huge.mp4", (300 * Media.MediaScanner.BytesPerMb) + 1);
 
-        var videos = new Media.MediaScanner(log).Scan(dir.Path, Media.MediaKind.Video, new LooppaperConfig().Video.MaxFileSizeMb);
+        var videos = new Media.MediaScanner(new MemoryLog()).Scan(dir.Path, Media.MediaKind.Video, int.MaxValue);
 
-        Assert.Equal(["small.mp4"], videos.Select(Path.GetFileName));
-        Assert.Contains(log.Warnings, w => w.Contains("huge.mp4", StringComparison.Ordinal) && w.Contains("100 MB limit", StringComparison.Ordinal));
+        Assert.Equal(["huge.mp4", "small.mp4"], videos.Select(Path.GetFileName));
     }
-
     [Fact]
     public void VideoIsMutedAndEnabledByDefault()
     {

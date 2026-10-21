@@ -95,9 +95,6 @@ public sealed class LooppaperConfig
 
 public sealed class VideoConfig
 {
-    /// <summary>Videos are limited to 100 MB; larger values in config.json are clamped down to this.</summary>
-    public const int DefaultMaxFileSizeMb = 100;
-    public const int MaxFileSizeCapMb = 100;
 
     /// <summary>When true and a video is available, the looping video is the wallpaper instead of pictures.</summary>
     public bool Enabled { get; set; } = true;
@@ -108,7 +105,11 @@ public sealed class VideoConfig
     /// <summary>0..100; 0 mutes the video.</summary>
     public int Volume { get; set; }
 
-    public int MaxFileSizeMb { get; set; } = DefaultMaxFileSizeMb;
+    /// <summary>
+    /// Compress every video once (into the cache) before it becomes the wallpaper: scaled to the screen and
+    /// re-encoded at a wallpaper-friendly bitrate. The original is kept. False plays videos as they are.
+    /// </summary>
+    public bool Compress { get; set; } = true;
 }
 
 /// <summary>The <c>wallpaperEngine</c> section: overrides for the folders found through Steam.</summary>

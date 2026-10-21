@@ -19,7 +19,8 @@ public class ConfigLoaderTests
         Assert.Contains("\"collectionFolder\"", text);
         Assert.Contains("\"mode\": \"slideshow\"", text);
         Assert.Contains("\"scaling\": \"fill\"", text);
-        Assert.Contains("\"maxFileSizeMb\": 100", text);
+        Assert.Contains("\"compress\": true", text);
+        Assert.DoesNotContain("maxFileSizeMb", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -142,8 +143,7 @@ public class ConfigLoaderTests
         Assert.Equal(LooppaperConfig.MaxPictureSizeCapMb, config.MaxPictureSizeMb);
         Assert.Equal(LooppaperConfig.DefaultBackgroundColor, config.BackgroundColor);
         Assert.Equal(100, config.Video.Volume);
-        Assert.Equal(VideoConfig.MaxFileSizeCapMb, config.Video.MaxFileSizeMb);
-        Assert.Equal(5, log.Warnings.Count());
+        Assert.Equal(4, log.Warnings.Count()); // the obsolete video.maxFileSizeMb is only noted, not warned about
     }
 
     [Fact]

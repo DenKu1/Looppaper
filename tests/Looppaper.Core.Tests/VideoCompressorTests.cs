@@ -7,7 +7,6 @@ namespace Looppaper.Core.Tests;
 public class VideoCompressorTests
 {
     private const long Mb = MediaScanner.BytesPerMb;
-    private const long Limit = 100 * Mb;
 
     private static readonly MediaInfo FourK = new(TimeSpan.FromSeconds(112), 3840, 2160, "h264", 30, true, 16_000_000, 228 * Mb);
 
@@ -82,7 +81,7 @@ public class VideoCompressorTests
         var original = dir.File("Floating In Space.mp4", 2048);
         var key = VideoFileKey.TryFromFile(original)! with { SizeBytes = 228 * Mb };
         var cache = Path.Combine(dir.Path, "cache");
-        return (new CompressionRequest(key, info ?? FourK, Limit, cache, new PixelSize(2560, 1440)), original, cache);
+        return (new CompressionRequest(key, info ?? FourK, cache, new PixelSize(2560, 1440)), original, cache);
     }
 
     [Fact]
@@ -140,40 +139,50 @@ public class VideoCompressorTests
     }
 
     [Fact]
-    public async Task RetriesOnceAtALowerBitrateWhenTheResultIsTooLarge()
+    public async Task ResultOverHundredMbStillSucceedsButIsFlaggedLarge()
     {
         using var dir = new TempDir();
         var (request, _, _) = Setup(dir);
         var ffmpeg = new FakeFfmpeg();
-        ffmpeg.OutputSizes.Enqueue(104 * Mb);
-        ffmpeg.OutputSizes.Enqueue(95 * Mb);
+        ffmpeg.OutputSizes.Enqueue(150 * Mb);
 
         var result = await new VideoCompressor(ffmpeg, new MemoryLog()).CompressAsync(request, null, CancellationToken.None);
 
         Assert.True(result.Succeeded, result.Message);
-        Assert.Equal(95 * Mb, result.OutputBytes);
-        var bitrates = ffmpeg.Encodes.Select(e => int.Parse(ArgAfter(e, "-b:v").TrimEnd('k'), System.Globalization.CultureInfo.InvariantCulture)).ToList();
-        Assert.Equal(2, bitrates.Count);
-        Assert.True(bitrates[1] < bitrates[0] * 0.86);
+        Assert.True(result.IsLarge);
+        Assert.Single(ffmpeg.Encodes); // no retry, no refusal
     }
 
     [Fact]
-    public async Task GivesUpWhenStillTooLargeAfterTheRetry()
+    public async Task CompactOriginalIsKeptWithoutEncoding()
     {
         using var dir = new TempDir();
-        var (request, _, cache) = Setup(dir);
+        var compact = new MediaInfo(TimeSpan.FromSeconds(60), 1920, 1080, "h264", 30, true, 4_000_000, 30 * Mb);
+        var (request, _, _) = Setup(dir, compact);
+        request = request with { Source = request.Source with { SizeBytes = 30 * Mb } };
         var ffmpeg = new FakeFfmpeg();
-        ffmpeg.OutputSizes.Enqueue(120 * Mb);
-        ffmpeg.OutputSizes.Enqueue(101 * Mb);
 
         var result = await new VideoCompressor(ffmpeg, new MemoryLog()).CompressAsync(request, null, CancellationToken.None);
 
+        Assert.True(result.KeepOriginal);
         Assert.False(result.Succeeded);
-        Assert.Contains("still 101.0 MB", result.Message, StringComparison.Ordinal);
-        Assert.Equal(2, ffmpeg.Encodes.Count());
-        Assert.Empty(Directory.GetFiles(cache));
+        Assert.Empty(ffmpeg.Runs);
     }
 
+    [Fact]
+    public async Task ResultThatIsNotSmallerIsDiscardedAndTheOriginalKept()
+    {
+        using var dir = new TempDir();
+        var hd = new MediaInfo(TimeSpan.FromSeconds(112), 1920, 1080, "h264", 30, true, 16_000_000, 228 * Mb);
+        var (request, _, cache) = Setup(dir, hd);
+        var ffmpeg = new FakeFfmpeg();
+        ffmpeg.OutputSizes.Enqueue(230 * Mb);
+
+        var result = await new VideoCompressor(ffmpeg, new MemoryLog()).CompressAsync(request, null, CancellationToken.None);
+
+        Assert.True(result.KeepOriginal);
+        Assert.Empty(Directory.GetFiles(cache));
+    }
     [Fact]
     public async Task ResultThatCannotBeReadBackIsDeleted()
     {
@@ -220,7 +229,7 @@ public class VideoCompressorTests
     [Fact]
     public void EncodeArgumentsKeepAudioAndSkipScalingWhenNotNeeded()
     {
-        var plan = new CompressionPlan(new PixelSize(1920, 1080), new PixelSize(1920, 1080), 6000, 128, false, TimeSpan.FromSeconds(60), 0);
+        var plan = new CompressionPlan(new PixelSize(1920, 1080), new PixelSize(1920, 1080), 6000, 128, TimeSpan.FromSeconds(60), 0, Worthwhile: true);
 
         var args = CompressionArguments.Encode(@"C:\in.mp4", @"C:\out.mp4.part", plan, VideoEncoder.X264);
 
@@ -238,9 +247,9 @@ public class VideoCompressorTests
     }
 
     [Fact]
-    public void EncodeArgumentsDropAudioWhenPlanned()
+    public void EncodeArgumentsHaveNoAudioForASilentVideo()
     {
-        var plan = new CompressionPlan(new PixelSize(1920, 1080), new PixelSize(1920, 1080), 420, 0, true, TimeSpan.FromSeconds(1700), 0);
+        var plan = new CompressionPlan(new PixelSize(1920, 1080), new PixelSize(1920, 1080), 420, 0, TimeSpan.FromSeconds(1700), 0, Worthwhile: true);
 
         var args = CompressionArguments.Encode(@"C:\in.mp4", @"C:\out.mp4", plan, VideoEncoder.Qsv);
 

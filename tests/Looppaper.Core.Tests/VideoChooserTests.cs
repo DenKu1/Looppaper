@@ -10,73 +10,62 @@ public class VideoChooserTests
     private static VideoFileKey Key(string path, long sizeMb) => new(path, sizeMb * Mb, 1000);
 
     [Fact]
-    public void PlaysFirstVideoWithinTheLimit()
+    public void PlaysTheFirstVideoAndCompressesItWhenThereIsNoCopyYet()
     {
-        var choice = VideoChooser.Choose([Key(@"C:\v\a.mp4", 40), Key(@"C:\v\b.mp4", 20)], 100, _ => null, new MemoryLog());
+        var first = Key(@"C:\v\big.mp4", 218);
 
-        Assert.Equal(@"C:\v\a.mp4", choice.PlayPath);
-        Assert.Null(choice.Oversized);
+        var choice = VideoChooser.Choose([first, Key(@"C:\v\small.mp4", 20)], _ => null, compress: true, new MemoryLog());
+
+        Assert.Equal(@"C:\v\big.mp4", choice.PlayPath); // plays meanwhile: nothing is refused
+        Assert.Same(first, choice.ToCompress);
     }
 
     [Fact]
-    public void SkipsOversizedVideoAndRemembersIt()
+    public void SmallVideosAreCompressedToo()
     {
-        var log = new MemoryLog();
-        var big = Key(@"C:\v\big.mp4", 218);
+        var choice = VideoChooser.Choose([Key(@"C:\v\small.mp4", 5)], _ => null, compress: true, new MemoryLog());
 
-        var choice = VideoChooser.Choose([big, Key(@"C:\v\small.mp4", 50)], 100, _ => null, log);
-
-        Assert.Equal(@"C:\v\small.mp4", choice.PlayPath);
-        Assert.Same(big, choice.Oversized);
-        Assert.Contains(log.Warnings, w => w.Contains("218.0 MB, above the 100 MB video limit", StringComparison.Ordinal));
+        Assert.Equal(@"C:\v\small.mp4", choice.ToCompress?.FullPath);
     }
 
     [Fact]
-    public void OnlyOversizedVideosMeansPictures()
-    {
-        var choice = VideoChooser.Choose([Key(@"C:\v\big.mp4", 101)], 100, _ => null, new MemoryLog());
-
-        Assert.Null(choice.PlayPath);
-        Assert.Equal(@"C:\v\big.mp4", choice.Oversized?.FullPath);
-    }
-
-    [Fact]
-    public void UsesTheConfiguredLimit()
-    {
-        var choice = VideoChooser.Choose([Key(@"C:\v\a.mp4", 60)], 50, _ => null, new MemoryLog());
-
-        Assert.Null(choice.PlayPath);
-    }
-
-    [Fact]
-    public void PlaysCompressedCopyOfOversizedVideo()
+    public void PlaysTheCompressedCopyWhenThereIsOne()
     {
         var big = Key(@"C:\v\big.mp4", 300);
 
-        var choice = VideoChooser.Choose([big, Key(@"C:\v\small.mp4", 5)], 100, k => k == big ? @"C:\cache\big-1.mp4" : null, new MemoryLog());
+        var choice = VideoChooser.Choose([big], k => k == big ? @"C:\cache\big-1.mp4" : null, compress: true, new MemoryLog());
 
         Assert.Equal(@"C:\cache\big-1.mp4", choice.PlayPath);
-        Assert.Null(choice.Oversized);
+        Assert.Null(choice.ToCompress);
     }
 
     [Fact]
-    public void SkipsDuplicatesAndEmptyFiles()
+    public void OriginalKeptAsIsIsNotCompressedAgain()
     {
-        var choice = VideoChooser.Choose(
-            [new VideoFileKey(@"C:\v\empty.mp4", 0, 1), Key(@"C:\v\a.mp4", 200), Key(@"c:\V\A.MP4", 200), Key(@"C:\v\b.mp4", 1)],
-            100,
-            _ => null,
-            new MemoryLog());
+        var compact = Key(@"C:\v\compact.mp4", 10);
+
+        var choice = VideoChooser.Choose([compact], k => k.FullPath, compress: true, new MemoryLog());
+
+        Assert.Equal(@"C:\v\compact.mp4", choice.PlayPath);
+        Assert.Null(choice.ToCompress);
+    }
+
+    [Fact]
+    public void CompressionOffPlaysTheOriginal()
+    {
+        var choice = VideoChooser.Choose([Key(@"C:\v\big.mp4", 300)], _ => @"C:\cache\copy.mp4", compress: false, new MemoryLog());
+
+        Assert.Equal(@"C:\v\big.mp4", choice.PlayPath);
+        Assert.Null(choice.ToCompress);
+    }
+
+    [Fact]
+    public void SkipsEmptyFilesAndReturnsNothingForNoVideos()
+    {
+        var choice = VideoChooser.Choose([new VideoFileKey(@"C:\v\empty.mp4", 0, 1), Key(@"C:\v\b.mp4", 1)], _ => null, compress: true, new MemoryLog());
 
         Assert.Equal(@"C:\v\b.mp4", choice.PlayPath);
-        Assert.Equal(@"C:\v\a.mp4", choice.Oversized?.FullPath);
-    }
-
-    [Fact]
-    public void ExactlyAtTheLimitIsAllowed()
-    {
-        Assert.False(VideoSizeLimit.IsOversized(100 * Mb, 100));
-        Assert.True(VideoSizeLimit.IsOversized((100 * Mb) + 1, 100));
+        Assert.Null(VideoChooser.Choose([], _ => null, compress: true, new MemoryLog()).PlayPath);
     }
 
     [Fact]

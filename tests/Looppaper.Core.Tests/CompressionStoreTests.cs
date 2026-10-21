@@ -8,33 +8,21 @@ public class CompressionStoreTests
     private static readonly VideoFileKey Video = new(@"C:\Videos\big.mp4", 228_000_000, 638_000_000_000_000_000);
 
     [Fact]
-    public void RemembersNoPerFileVersion()
+    public void RemembersKeepingTheOriginalPerFileVersion()
     {
         using var dir = new TempDir();
         var file = Path.Combine(dir.Path, "sub", "compression.json");
         var store = new CompressionStore(file, new MemoryLog());
 
-        Assert.False(store.IsDeclined(Video));
-        store.SetDeclined(Video, true);
+        Assert.False(store.IsKeptAsIs(Video));
+        store.RecordKeepOriginal(Video);
 
         var reopened = new CompressionStore(file, new MemoryLog());
-        Assert.True(reopened.IsDeclined(Video));
-        Assert.True(reopened.IsDeclined(Video with { FullPath = @"c:\videos\BIG.mp4" }));
-        Assert.False(reopened.IsDeclined(Video with { SizeBytes = 1 }));
-        Assert.False(reopened.IsDeclined(Video with { LastWriteUtcTicks = 1 }));
-        Assert.False(reopened.IsDeclined(Video with { FullPath = @"C:\Videos\other.mp4" }));
-    }
-
-    [Fact]
-    public void YesClearsAnEarlierNo()
-    {
-        using var dir = new TempDir();
-        var store = new CompressionStore(Path.Combine(dir.Path, "c.json"), new MemoryLog());
-
-        store.SetDeclined(Video, true);
-        store.SetDeclined(Video, false);
-
-        Assert.False(store.IsDeclined(Video));
+        Assert.True(reopened.IsKeptAsIs(Video));
+        Assert.True(reopened.IsKeptAsIs(Video with { FullPath = @"c:\videos\BIG.mp4" }));
+        Assert.False(reopened.IsKeptAsIs(Video with { SizeBytes = 1 }));
+        Assert.False(reopened.IsKeptAsIs(Video with { LastWriteUtcTicks = 1 }));
+        Assert.False(reopened.IsKeptAsIs(Video with { FullPath = @"C:\Videos\other.mp4" }));
     }
 
     [Fact]
@@ -43,76 +31,61 @@ public class CompressionStoreTests
         using var dir = new TempDir();
         var file = Path.Combine(dir.Path, "c.json");
         var store = new CompressionStore(file, new MemoryLog());
-        store.SetDeclined(Video, true);
+        store.RecordKeepOriginal(Video);
 
         var edited = Video with { LastWriteUtcTicks = Video.LastWriteUtcTicks + 10 };
         store.SetToldFfmpegMissing(edited);
 
-        Assert.False(store.IsDeclined(Video));
+        Assert.False(store.IsKeptAsIs(Video));
         Assert.True(store.WasToldFfmpegMissing(edited));
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(file), "\"path\""));
     }
 
     [Fact]
-    public void FfmpegMissingNoticeIsSeparateFromNo()
-    {
-        using var dir = new TempDir();
-        var store = new CompressionStore(Path.Combine(dir.Path, "c.json"), new MemoryLog());
-
-        store.SetToldFfmpegMissing(Video);
-
-        Assert.True(store.WasToldFfmpegMissing(Video));
-        Assert.False(store.IsDeclined(Video));
-    }
-
-    [Fact]
-    public void RecordsTheCompressedCopy()
+    public void RecordsTheCompressedCopyOfAnySize()
     {
         using var dir = new TempDir();
         var file = Path.Combine(dir.Path, "c.json");
         var copy = dir.File("big-0123456789.mp4", 90);
         var store = new CompressionStore(file, new MemoryLog());
-        store.SetDeclined(Video, true);
+        store.RecordKeepOriginal(Video);
 
         store.RecordCompressed(Video, copy);
 
         var reopened = new CompressionStore(file, new MemoryLog());
-        Assert.Equal(copy, reopened.FindCompressed(Video, 100));
-        Assert.False(reopened.IsDeclined(Video));
-        Assert.Null(reopened.FindCompressed(Video with { SizeBytes = 5 }, 100));
+        Assert.Equal(copy, reopened.FindCompressed(Video));
+        Assert.False(reopened.IsKeptAsIs(Video));
+        Assert.Null(reopened.FindCompressed(Video with { SizeBytes = 5 }));
     }
 
     [Fact]
-    public void ForgetsACopyThatIsGoneOrTooLarge()
+    public void ForgetsACopyThatIsGone()
     {
         using var dir = new TempDir();
         var store = new CompressionStore(Path.Combine(dir.Path, "c.json"), new MemoryLog());
         var copy = dir.File("copy.mp4", 200);
         store.RecordCompressed(Video, copy);
-
-        Assert.Null(store.FindCompressed(Video, 100)); // larger than the (lowered) limit
-        File.WriteAllBytes(copy, new byte[50]);
-        Assert.Null(store.FindCompressed(Video, 100)); // the record was dropped
-
-        store.RecordCompressed(Video, copy);
         File.Delete(copy);
         var log = new MemoryLog();
-        Assert.Null(new CompressionStore(store.FilePath, log).FindCompressed(Video, 100));
+
+        Assert.Null(new CompressionStore(store.FilePath, log).FindCompressed(Video));
         Assert.Contains(log.Warnings, w => w.Contains("is gone", StringComparison.Ordinal));
+        Assert.Null(store.FindCompressed(Video)); // the record was dropped
     }
 
     [Fact]
-    public void CompressedCopyIsPlayedInsteadOfTheOriginal()
+    public void OldRecordsWithARememberedNoStillLoad()
     {
         using var dir = new TempDir();
-        var store = new CompressionStore(Path.Combine(dir.Path, "c.json"), new MemoryLog());
-        var copy = dir.File("copy.mp4", 1024);
-        store.RecordCompressed(Video, copy);
+        var file = Path.Combine(dir.Path, "c.json");
+        var copy = dir.File("copy.mp4", 10);
+        File.WriteAllText(file, System.Text.Json.JsonSerializer.Serialize(new
+        {
+            version = 1,
+            entries = new[] { new { path = Video.FullPath, size = Video.SizeBytes, lastWriteUtcTicks = Video.LastWriteUtcTicks, declined = true, compressed = copy } },
+        }));
 
-        var choice = VideoChooser.Choose([Video], 100, k => store.FindCompressed(k, VideoSizeLimit.Bytes(100)), new MemoryLog());
-
-        Assert.Equal(copy, choice.PlayPath);
-        Assert.Null(choice.Oversized);
+        Assert.Equal(copy, new CompressionStore(file, new MemoryLog()).FindCompressed(Video));
     }
 
     [Theory]
@@ -124,39 +97,38 @@ public class CompressionStoreTests
         using var dir = new TempDir();
         var file = Path.Combine(dir.Path, "c.json");
         File.WriteAllText(file, content);
-        var log = new MemoryLog();
-        var store = new CompressionStore(file, log);
+        var store = new CompressionStore(file, new MemoryLog());
 
-        Assert.False(store.IsDeclined(Video));
-        store.SetDeclined(Video, true);
-        Assert.True(store.IsDeclined(Video));
-    }
-
-    [Theory]
-    [InlineData("y", true)]
-    [InlineData(" YES ", true)]
-    [InlineData("Y", true)]
-    [InlineData("n", false)]
-    [InlineData("", false)]
-    [InlineData("yep", false)]
-    [InlineData(null, false)]
-    public void OnlyYesMeansYes(string? answer, bool expected)
-    {
-        Assert.Equal(expected, CompressionPrompt.IsYes(answer));
+        Assert.False(store.IsKeptAsIs(Video));
+        store.RecordKeepOriginal(Video);
+        Assert.True(store.IsKeptAsIs(Video));
     }
 
     [Fact]
-    public void PromptNamesFileSizeEstimateAndLimit()
+    public void MessagesTellRatherThanAsk()
     {
-        var plan = new CompressionPlan(new PixelSize(3840, 2160), new PixelSize(2560, 1440), 11_000, 128, false, TimeSpan.FromSeconds(65), 92 * 1024 * 1024);
+        var plan = new CompressionPlan(new PixelSize(3840, 2160), new PixelSize(2560, 1440), 11_000, 128, TimeSpan.FromSeconds(65), 92 * 1024 * 1024, Worthwhile: true);
 
-        var details = CompressionPrompt.Details(Video, 100, plan, @"C:\cache");
+        var starting = CompressionMessages.Starting(Video, plan, @"C:\cache");
 
-        Assert.Contains("big.mp4 is 217.4 MB, above the 100 MB video limit.", details, StringComparison.Ordinal);
-        Assert.Contains("Estimated result: about 92.0 MB", details, StringComparison.Ordinal);
-        Assert.Contains("The original is kept", details, StringComparison.Ordinal);
-        Assert.Equal("Compress to fit under 100 MB? [y/N] ", CompressionPrompt.ConsoleQuestion(100));
-        Assert.Contains("ffmpeg", CompressionPrompt.FfmpegMissingText(Video, 100, "install hint"), StringComparison.Ordinal);
+        Assert.Contains("Compressing big.mp4 (217.4 MB)", starting, StringComparison.Ordinal);
+        Assert.Contains("about 92.0 MB", starting, StringComparison.Ordinal);
+        Assert.Contains("The original is kept", starting, StringComparison.Ordinal);
+        Assert.DoesNotContain("?", starting, StringComparison.Ordinal);
+        Assert.Contains("in the background", CompressionMessages.StartingInBackground(Video), StringComparison.Ordinal);
+        Assert.Contains("plays uncompressed", CompressionMessages.FfmpegMissing(Video, "install hint"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LargeResultGetsAPerformanceWarning()
+    {
+        var warning = CompressionMessages.LargeWarning("big.mp4", 150 * 1024 * 1024);
+
+        Assert.Contains("still 150.0 MB", warning, StringComparison.Ordinal);
+        Assert.Contains("slow your PC down", warning, StringComparison.Ordinal);
+        Assert.Contains("plays anyway", warning, StringComparison.Ordinal);
+        Assert.True(VideoSize.IsLarge(VideoSize.WarningBytes + 1));
+        Assert.False(VideoSize.IsLarge(VideoSize.WarningBytes));
     }
 
     [Fact]

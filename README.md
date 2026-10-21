@@ -118,7 +118,7 @@ in the log); a file that is not valid JSON is ignored and the defaults are used.
     "enabled": true,            // false = always show pictures
     "file": null,               // file name in the collection, or a full path; null = first .mp4 in the collection
     "volume": 0,                // 0..100; 0 = muted
-    "maxFileSizeMb": 100        // larger videos are not played; Looppaper offers to compress them (see "Large videos"); 100 is also the maximum
+    "compress": true            // compress each video once (into the cache) before playing it; see "Video compression"
   },
   "wallpaperEngine": {
     "workshopPath": null,       // Wallpaper Engine Workshop folder (...\\steamapps\\workshop\\content\\431960); null = found through Steam
@@ -146,7 +146,7 @@ Looppaper.exe [options]
   --video <file>         Play this .mp4 looped as the wallpaper (file name in the collection or full path)
   --no-video             Show pictures even if the collection has a video
   --volume <0-100>       Video volume (0 = muted)
-  --compress <file>      Compress a video above the 100 MB limit (asks first; needs ffmpeg)
+  --compress <file>      Compress a video for the wallpaper now, with progress (needs ffmpeg)
   --stop                 Stop the running instance and restore the wallpaper
   --install-startup      Start Looppaper when you sign in (current user)
   --uninstall-startup    Remove Looppaper from sign-in startup
@@ -163,39 +163,39 @@ Command-line options override the config file for that run only; the file is not
 
 Commands such as `--help` and `--stop` print their result in the terminal you run them from. Starting the wallpaper from a terminal hands it to a background copy and returns straight away, so you can close the terminal. Started from Explorer or at sign-in no console window appears (Windows 11 24H2 and later; older Windows may flash a console window for a moment).
 
-## Large videos
+## Video compression
 
-Videos are limited to 100 MB (`video.maxFileSizeMb`). A larger video is not played: Looppaper logs it and
-shows the pictures instead. It can make a smaller copy with [ffmpeg](https://ffmpeg.org/), but **always asks
-first** and never changes or deletes the original.
+Every video is compressed once before it becomes the wallpaper (`video.compress`, on by default), so it
+uses less memory, disk and GPU. Looppaper **tells you** rather than asks, and never changes or deletes the
+original. Nothing is refused because of its size.
 
-- **From a terminal:** `Looppaper.exe --compress <file>` (a file name in the collection or a full path)
-  reads the video, shows its size and the estimated result, and asks:
+- **At start-up (no terminal):** the video starts playing straight away as it is, a Windows notification
+  says it is being compressed in the background, and the wallpaper switches to the lighter copy when it is
+  ready. Next time the copy plays immediately.
+- **From a terminal:** `Looppaper.exe --compress <file>` (a file name in the collection or a full path), and
+  `--we-set` / `--we-pick` on a Wallpaper Engine video, compress right there with a progress line
+  (Ctrl+C cancels):
 
   ```
-  Floating_In_Space.mp4 is 217.9 MB, above the 100 MB video limit.
-  Estimated result: about 90.9 MB (1920x1080, 6.6 Mbit/s video + 128 kbit/s audio, 1:52).
-  The original is kept; the copy is saved in C:\Users\you\AppData\Local\Looppaper\cache.
-  Compress to fit under 100 MB? [y/N]
+  Compressing Floating_In_Space.mp4 (217.9 MB) for the wallpaper: about 92.1 MB (1920x1080, 6.2 Mbit/s video + 128 kbit/s audio, 1:52). The original is kept; ...
+  Encoder: NVIDIA NVENC
+    100% (00:01:52, 9.3x)
+  Compressed 217.9 MB to 88.4 MB: ...\cache\Floating_In_Space-1a2b3c4d5e.mp4
   ```
 
-  Progress is shown while ffmpeg works; Ctrl+C cancels. `--compress` asks every time.
-- **At start-up (no terminal):** when the chosen video (`video.file`, `--video`, the first `.mp4` in the
-  collection, or a Wallpaper Engine video) is too large, Looppaper shows pictures and a Windows message box
-  with the same details and Yes / No. On Yes it compresses in the background and switches to the video when
-  it is ready. A No is remembered for that file (same path, size and modified time), so it does not ask on
-  every start; run `--compress` to change your mind. If ffmpeg is missing, the message box says how to
-  install it instead (once per file).
+- **Still over 100 MB?** Long or very detailed videos can stay large. They still play, but Looppaper warns
+  (in the terminal, or with a notification) that a video over 100 MB can slow your PC down.
+- **Already compact?** If compressing would not make the video smaller (and it is no larger than your
+  screen), the original is kept as it is and remembered, so it is not tried again.
+- **No ffmpeg?** The original plays uncompressed, and you are told once how to install ffmpeg.
 
-How it compresses: the bitrate is worked out from the video's length so the copy lands at about 90% of the
-limit (128 kbit/s of that for audio; the audio is dropped only when the video would otherwise get too little),
-a video larger than your biggest monitor is scaled down to still cover it (never up, aspect ratio kept), and
-the first working encoder is used: NVIDIA NVENC, AMD AMF, Intel Quick Sync, else x264 on the CPU. If the copy
-still comes out over the limit it is redone once at a lower bitrate. The copy is checked (under the limit,
-readable by ffprobe) and saved as `%LOCALAPPDATA%\Looppaper\cache\<name>-<hash>.mp4`; from then on
-Looppaper plays it whenever the original is chosen. Answers and copies are recorded in
-`%LOCALAPPDATA%\Looppaper\compression.json`. Deleting the cache folder is safe (you will be asked again).
-
+How it compresses: a video larger than your biggest monitor is scaled down to still cover it (never up,
+aspect ratio kept); the bitrate is about 0.1 bit per pixel per frame (about 6 Mbit/s at 1080p30, 11 Mbit/s
+at 1440p30), never more than the original's, plus 128 kbit/s audio when it has sound; and the first working
+encoder is used: NVIDIA NVENC, AMD AMF, Intel Quick Sync, else x264 on the CPU. The copy is checked (readable
+by ffprobe) and saved as `cache\<name>-<hash>.mp4`; from then on Looppaper plays it whenever the original is
+chosen. Copies are recorded in `compression.json`. Deleting the cache folder is safe (videos are simply
+compressed again). Set `"video": { "compress": false }` to play videos exactly as they are.
 ffmpeg is not included with Looppaper. Install it with `winget install Gyan.FFmpeg`, or set `ffmpegPath` in
 `config.json` to `ffmpeg.exe` or its folder; `ffprobe.exe` must be next to it. Looppaper also finds ffmpeg on
 PATH and in scoop and Chocolatey installs.
@@ -223,8 +223,7 @@ until you subscribe to or remove a wallpaper. Statuses:
 
 | Status | Meaning |
 |---|---|
-| ready | an `.mp4` video within the 100 MB limit; played as it is |
-| too large | a video over 100 MB; it has to be compressed first |
+| ready | an `.mp4` video; compressed once (see [Video compression](#video-compression)) and played |
 | needs conversion | a scene or web wallpaper; it is recorded to a looping `.mp4` first |
 | converted | a scene or web wallpaper already recorded (in `%LOCALAPPDATA%\Looppaper\cache`) |
 | unsupported | an application wallpaper, a video that is not `.mp4`, or a broken item |
@@ -234,10 +233,8 @@ list and type a number. Looppaper writes `"video": { "enabled": true, "file": "<
 `config.json` (your other settings are kept; comments in the file are not) and restarts a running Looppaper
 so the new wallpaper shows straight away. Add `--no-restart` to only change the config.
 
-A video wallpaper over the 100 MB limit goes through the same flow as `--compress`: Looppaper shows the
-size and the estimated result and asks `Compress to fit under 100 MB? [y/N]`. On yes it compresses a copy
-into the cache and sets the video; the original Workshop file is never changed (an existing compressed copy
-is reused without asking).
+A video wallpaper is compressed right there, like `--compress` (an existing compressed copy is reused), and
+then set; the original Workshop file is never changed.
 
 ### Scene and web wallpapers
 
@@ -245,16 +242,16 @@ Scene and web wallpapers are rendered live by Wallpaper Engine, so Looppaper rec
 looping `.mp4` and plays that. `--we-set` / `--we-pick` on such an item explains what will happen, with an
 estimate, and asks `Convert now? [y/N]`; `--we-convert <number|id>` only records it (without changing
 `config.json`). While recording, Wallpaper Engine plays the wallpaper in a window of its own that is moved
-off-screen (on PCs that don't render off-screen windows it is moved on-screen for the recording). If
-Wallpaper Engine isn't running, Looppaper starts it for the recording and closes it again afterwards; while it
-runs it may show its own wallpaper on the desktop, and ffmpeg records that window with its `gfxcapture` source:
+off-screen (on PCs that don't render off-screen windows it is moved on-screen for the recording), and ffmpeg
+records that window with its `gfxcapture` source. If Wallpaper Engine isn't running, Looppaper starts it for
+the recording and closes it again afterwards; while it runs it may show its own wallpaper on the desktop.
 
 - Length: if the scene's timeline animations loop (or a web page is built around one looping video), exactly
   one loop is recorded; otherwise 30 seconds whose end is crossfaded into the start so it loops seamlessly.
 - Picture: your primary monitor's resolution at up to 30 fps; a scene with a different aspect ratio is
   rendered whole and cropped at the alignment position you set in Wallpaper Engine.
 - Encoder: the first hardware encoder that works (NVIDIA NVENC, AMD AMF, Intel QSV), else the CPU (x264),
-  at a bitrate that keeps the file under 100 MB.
+  at a bitrate that aims to keep the file under 100 MB (a larger result is kept, with a size warning).
 - Result: `%LOCALAPPDATA%\Looppaper\cache\we-<Workshop id>-<modified time>.mp4`. When the Workshop item is
   updated it is recorded again; deleting the cache folder is always safe. Ctrl+C cancels and saves nothing.
 

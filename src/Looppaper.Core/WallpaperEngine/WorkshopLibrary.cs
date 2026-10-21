@@ -8,11 +8,8 @@ namespace Looppaper.Core.WallpaperEngine;
 /// <summary>Whether Looppaper can play a Workshop item, and what it needs first.</summary>
 public enum WorkshopItemStatus
 {
-    /// <summary>An <c>.mp4</c> video within the 100 MB limit: played directly.</summary>
+    /// <summary>An <c>.mp4</c> video: played (after compression, when <c>video.compress</c> is on).</summary>
     Ready,
-
-    /// <summary>A video over the 100 MB limit: needs compressing first (Epic 9).</summary>
-    TooLarge,
 
     /// <summary>A scene or web wallpaper that has not been recorded to a video yet.</summary>
     NeedsConversion,
@@ -65,7 +62,6 @@ public static class WorkshopLibrary
 {
     public static IReadOnlyList<WorkshopItem> Scan(IEnumerable<string> workshopFolders, string cacheDirectory, ILog log)
     {
-        var maxBytes = (long)VideoConfig.MaxFileSizeCapMb * MediaScanner.BytesPerMb;
         var items = new List<WorkshopItem>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var root in workshopFolders)
@@ -101,7 +97,7 @@ public static class WorkshopLibrary
                     continue;
                 }
 
-                items.Add(Describe(id, folder, project, cacheDirectory, maxBytes));
+                items.Add(Describe(id, folder, project, cacheDirectory));
             }
         }
 
@@ -114,7 +110,7 @@ public static class WorkshopLibrary
     }
 
     /// <summary>Builds the item for one folder; public for tests.</summary>
-    public static WorkshopItem Describe(string id, string folder, ProjectInfo project, string cacheDirectory, long maxVideoBytes)
+    public static WorkshopItem Describe(string id, string folder, ProjectInfo project, string cacheDirectory)
     {
         var title = project.Title ?? id;
         var type = project.Type;
@@ -136,8 +132,7 @@ public static class WorkshopLibrary
                     return new(0, id, folder, title, type, file, size, modified, WorkshopItemStatus.Unsupported, null, $"{Path.GetExtension(file)} video; only .mp4 is supported");
                 }
 
-                var status = size > maxVideoBytes ? WorkshopItemStatus.TooLarge : WorkshopItemStatus.Ready;
-                return new(0, id, folder, title, type, file, size, modified, status, null, null);
+                return new(0, id, folder, title, type, file, size, modified, WorkshopItemStatus.Ready, null, null);
             }
 
             case WorkshopItemType.Scene:
@@ -174,7 +169,6 @@ public static class WorkshopLibrary
     public static string StatusText(WorkshopItemStatus status) => status switch
     {
         WorkshopItemStatus.Ready => "ready",
-        WorkshopItemStatus.TooLarge => "too large",
         WorkshopItemStatus.NeedsConversion => "needs conversion",
         WorkshopItemStatus.Converted => "converted",
         _ => "unsupported",

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using Looppaper.Core;
 using Looppaper.Core.CommandLine;
+using Looppaper.Core.Compression;
 using Looppaper.Core.Configuration;
 using Looppaper.Core.Logging;
 using Looppaper.Core.Tools;
@@ -139,7 +140,6 @@ internal sealed class WallpaperEngineCommands
             case WorkshopItemStatus.Converted:
                 return item.PlayableFile;
             case WorkshopItemStatus.Ready:
-            case WorkshopItemStatus.TooLarge:
                 return ResolveVideo(item);
             case WorkshopItemStatus.NeedsConversion:
                 ConsoleOutput.WriteLine($"This is a {WorkshopLibrary.TypeText(item.Type)} wallpaper; it has to be recorded to a video before Looppaper can play it.");
@@ -151,18 +151,12 @@ internal sealed class WallpaperEngineCommands
     }
 
     /// <summary>
-    /// A video item: within the size limit it is used as it is; a larger one goes through the
-    /// oversized-video flow (Epic 9), which uses an existing compressed copy or asks here whether to
-    /// compress it. config.json gets the original path either way: the wallpaper plays the recorded
-    /// compressed copy in its place. Null when the video cannot be played (e.g. the answer was no).
+    /// A video item: compressed here, with progress, unless it already has a compressed copy (or
+    /// <c>video.compress</c> is off). config.json gets the original path either way; the wallpaper plays the
+    /// recorded compressed copy in its place. Null only when the file is gone or the person cancelled.
     /// </summary>
     private string? ResolveVideo(WorkshopItem item)
     {
-        if (item.Status == WorkshopItemStatus.TooLarge)
-        {
-            ConsoleOutput.WriteLine($"This video is {WorkshopLibrary.SizeText(item.SizeBytes)}, over the {_config.Video.MaxFileSizeMb} MB video limit, so it has to be compressed before Looppaper plays it.");
-        }
-
         using var cancel = new CancellationTokenSource();
         ConsoleCancelEventHandler onCancel = (_, e) =>
         {
@@ -172,7 +166,7 @@ internal sealed class WallpaperEngineCommands
         Console.CancelKeyPress += onCancel;
         try
         {
-            var playable = OversizedVideoFlow.Resolve(item.FilePath!, _config, _log, OversizedVideoMode.Console, cancel.Token);
+            var playable = VideoCompressionFlow.Resolve(item.FilePath!, _config, _log, CompressionMode.Console, cancellationToken: cancel.Token);
             if (playable is null)
             {
                 ConsoleOutput.WriteLine("config.json was not changed.");
@@ -216,7 +210,6 @@ internal sealed class WallpaperEngineCommands
                 ConsoleOutput.WriteLine($"Use it with: Looppaper.exe --we-set {item.Id}");
                 return 0;
             case WorkshopItemStatus.Ready:
-            case WorkshopItemStatus.TooLarge:
                 ConsoleOutput.WriteLine("This is a video wallpaper; it needs no conversion. Use it with --we-set.");
                 return 0;
             default:
@@ -257,7 +250,7 @@ internal sealed class WallpaperEngineCommands
         var plan = CapturePlan.From(converter.FindLoop(item));
         var minutes = Math.Max(1, (int)Math.Ceiling(SceneCapture.Estimate(plan).TotalMinutes));
         ConsoleOutput.WriteLine(
-            $"Converting records {plan.Seconds:0.#} s of it ({plan.Reason}) into a video under {VideoConfig.MaxFileSizeCapMb} MB. " +
+            $"Converting records {plan.Seconds:0.#} s of it ({plan.Reason}) into a video (aiming for under {VideoSize.WarningMb} MB). " +
             $"It takes about {minutes} min: Wallpaper Engine plays it in an off-screen window while ffmpeg {ffmpeg.Version} records it. " +
             "If Wallpaper Engine isn't running, it is started for the recording (it may show its own wallpaper meanwhile) and closed again afterwards.");
 

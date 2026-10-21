@@ -80,10 +80,11 @@ public static partial class SceneCapture
     /// <summary>The frame rate a converted wallpaper aims for (kept low: it plays all day).</summary>
     public const int TargetFps = 30;
 
-    /// <summary>Converted files stay under this, leaving room under the 100 MB video limit for the container.</summary>
+    /// <summary>Converted files aim to stay under this, so they stay below the 100 MB size warning.</summary>
     public const long TargetBytes = 95 * MediaScanner.BytesPerMb;
 
-    public const long MaxBytes = VideoConfig.MaxFileSizeCapMb * MediaScanner.BytesPerMb;
+    /// <summary>Above this a converted video is shrunk once more (and still plays, with a size warning, if it stays larger).</summary>
+    public const long MaxBytes = Compression.VideoSize.WarningMb * MediaScanner.BytesPerMb;
 
     /// <summary>Bits per pixel per frame at most; plenty for a wallpaper and keeps short loops small.</summary>
     public const double MaxBitsPerPixel = 0.15;

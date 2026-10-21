@@ -63,7 +63,7 @@ internal static class Program
 
         if (options.Compress is not null)
         {
-            return OversizedVideoFlow.RunCompressCommand(options.Compress, config, log);
+            return VideoCompressionFlow.RunCompressCommand(options.Compress, config, log);
         }
 
         log.Info($"Looppaper {typeof(Program).Assembly.GetName().Version} starting on {Environment.OSVersion.VersionString}; {layout} layout; config {configPath}; overrides {options}");

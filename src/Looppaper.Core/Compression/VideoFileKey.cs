@@ -7,7 +7,7 @@ namespace Looppaper.Core.Compression;
 
 /// <summary>
 /// Identifies one version of a video file: its full path, size and last-write time. When the file is
-/// replaced or edited the key changes, so remembered answers and compressed copies no longer apply.
+/// replaced or edited the key changes, so a remembered compressed copy no longer applies.
 /// </summary>
 public sealed record VideoFileKey(string FullPath, long SizeBytes, long LastWriteUtcTicks)
 {
@@ -44,12 +44,17 @@ public sealed record VideoFileKey(string FullPath, long SizeBytes, long LastWrit
     }
 }
 
-/// <summary>The video size limit (<c>video.maxFileSizeMb</c>, at most 100 MB).</summary>
-public static class VideoSizeLimit
+/// <summary>
+/// Video sizes. There is no hard limit: every video plays, but one that is still over
+/// <see cref="WarningMb"/> after compression gets a warning that it can slow the PC down.
+/// </summary>
+public static class VideoSize
 {
-    public static long Bytes(int maxMb) => maxMb * MediaScanner.BytesPerMb;
+    public const int WarningMb = 100;
 
-    public static bool IsOversized(long sizeBytes, int maxMb) => sizeBytes > Bytes(maxMb);
+    public static long WarningBytes => WarningMb * MediaScanner.BytesPerMb;
+
+    public static bool IsLarge(long sizeBytes) => sizeBytes > WarningBytes;
 
     /// <summary>"218.3 MB" with an invariant decimal point.</summary>
     public static string FormatMb(long bytes) =>

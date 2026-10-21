@@ -71,9 +71,10 @@ internal sealed class SceneConverter
                 var shrink = await FfmpegRunner.RunAsync(_ffmpeg, SceneCapture.ShrinkArgs(partial, encoder, smaller, shrunk), TimeSpan.FromSeconds(plan.Seconds), progress, cancellationToken).ConfigureAwait(false);
                 ThrowIfFailed(shrink, "Making the video smaller");
                 File.Move(shrunk, partial, overwrite: true);
-                if (new FileInfo(partial).Length > SceneCapture.MaxBytes)
+                if (new FileInfo(partial).Length is var still && still > SceneCapture.MaxBytes)
                 {
-                    throw new ConversionException("The recording is still over 100 MB; nothing was saved.");
+                    _log.Warn($"Converted Workshop item {item.Id} is still {WorkshopLibrary.SizeText(still)}; keeping it with a size warning");
+                    _status(Core.Compression.CompressionMessages.LargeWarning(Path.GetFileName(output), still));
                 }
             }
 
