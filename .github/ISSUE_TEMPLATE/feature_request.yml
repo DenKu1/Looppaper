@@ -1,0 +1,16 @@
+name: Feature request
+description: An idea for Looppaper.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: The situation and what Looppaper should do in it.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could it work?
+      description: Optional. A config option, a command-line switch, ... (Looppaper has no settings window.)

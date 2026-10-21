@@ -1,0 +1,39 @@
+name: Bug report
+description: Something does not work as described in the README.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Looppaper version
+      placeholder: e.g. 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: From `winver`.
+      placeholder: e.g. Windows 11 24H2 (build 26100)
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Setup
+      description: Monitors and resolutions, picture or video (and its resolution / codec), Wallpaper Engine item if any.
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: >-
+        The relevant lines of `%LOCALAPPDATA%\Looppaper\logs\looppaper.log` (or `logs\` next to Looppaper.exe),
+        and your `config.json` if it matters. Remove anything personal first.
+      render: text
