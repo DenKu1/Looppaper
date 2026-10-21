@@ -81,6 +81,7 @@ internal static unsafe partial class User32
     public const uint WM_QUERYENDSESSION = 0x0011;
     public const uint WM_ERASEBKGND = 0x0014;
     public const uint WM_ENDSESSION = 0x0016;
+    public const uint WM_SETTINGCHANGE = 0x001A;
     public const uint WM_DISPLAYCHANGE = 0x007E;
     public const uint WM_TIMER = 0x0113;
     public const uint WM_DPICHANGED = 0x02E0;

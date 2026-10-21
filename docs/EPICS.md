@@ -47,7 +47,7 @@ Pausing covers both the video (Media Engine paused, so the GPU decoder idles) an
 - [x] 2.3 Pause on lock, sleep, display off and battery saver: session lock / disconnect (`pause.onLock`, default
       true), suspend / resume, the display turning off (always), Windows energy saver (`pause.onBatterySaver`,
       default true) and optionally running on battery (`pause.onBattery`, default false).
-- [ ] 2.4 Monitor hot-plug, resolution and DPI changes: on display, DPI or work-area changes (debounced) the window
+- [x] 2.4 Monitor hot-plug, resolution and DPI changes: on display, DPI or work-area changes (debounced) the window
       is resized to the new virtual screen and the video players / picture frame are rebuilt per monitor.
 - [ ] 2.5 Hot-reload of `config.json` and a collection folder watcher: edits to the config apply without a restart
       (command-line overrides still win); pictures or videos added, changed or removed in the collection folder are

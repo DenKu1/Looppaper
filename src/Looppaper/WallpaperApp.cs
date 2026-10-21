@@ -19,6 +19,8 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     /// <summary>Posted when the wallpaper window was destroyed from outside (Explorer went away).</summary>
     private const uint WM_WALLPAPER_LOST = User32.WM_APP + 4;
 
+    private const nint SPI_SETWORKAREA = 0x2F;
+
     private const nuint RecoverTimerId = 10;
 
     /// <summary>Gives a restarting Explorer a moment to build its desktop before attaching to it.</summary>
@@ -31,6 +33,11 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
 
     /// <summary>How often to look for a full-screen app in the foreground.</summary>
     private const uint FullscreenPollMs = 2000;
+
+    private const nuint DisplayTimerId = 12;
+
+    /// <summary>Display changes arrive in bursts (one per monitor, resolution, DPI, work area); act once they settle.</summary>
+    private const uint DisplaySettleMs = 1500;
 
     private readonly LooppaperConfig _config;
     private readonly ILog _log;
@@ -46,6 +53,8 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
     private readonly CancellationTokenSource _cancel = new();
     private Task? _compression;
     private volatile string? _compressedPath;
+    /// <summary>Virtual screen and monitors the current window and content were built for.</summary>
+    private string? _displayLayout;
     private bool _recovering;
     private bool _shutDown;
 
@@ -154,6 +163,14 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
             case User32.WM_TIMER when (nuint)wParam == FullscreenTimerId:
                 CheckFullscreen();
                 return true;
+            case User32.WM_DISPLAYCHANGE or User32.WM_DPICHANGED:
+            case User32.WM_SETTINGCHANGE when wParam == SPI_SETWORKAREA:
+                User32.SetTimer(_control!.Handle, DisplayTimerId, DisplaySettleMs, IntPtr.Zero);
+                return false;
+            case User32.WM_TIMER when (nuint)wParam == DisplayTimerId:
+                User32.KillTimer(_control!.Handle, DisplayTimerId);
+                OnDisplayChanged();
+                return true;
             case Power.WM_WTSSESSION_CHANGE or Power.WM_POWERBROADCAST:
                 return _power?.OnMessage(msg, wParam, lParam) == true;
             case PictureController.WM_FRAME_READY when _pictures is null:
@@ -226,11 +243,41 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler, IControlWindowHand
 
     private void StartContent()
     {
+        _displayLayout = DisplayLayout();
         if (!TryStartVideo())
         {
             StartPictures();
         }
     }
+
+    /// <summary>Monitors were added, removed or rearranged, or the resolution or DPI changed: rebuild for the new layout.</summary>
+    private void OnDisplayChanged()
+    {
+        if (_recovering || _shutDown)
+        {
+            return;
+        }
+
+        var layout = DisplayLayout();
+        if (layout == _displayLayout && IsAttached())
+        {
+            return;
+        }
+
+        _log.Info($"Display layout changed to {layout}; rebuilding the wallpaper");
+        StopContent();
+        _pause.SetCovered([]); // monitor rectangles changed; the next full-screen check fills it again
+        if (!AttachToDesktop())
+        {
+            BeginRecovery("the desktop could not be found after a display change");
+            return;
+        }
+
+        StartContent();
+    }
+
+    private static string DisplayLayout() =>
+        $"virtual screen {DesktopHost.VirtualScreen()}, monitors {string.Join(", ", Monitors.RelativeToVirtualScreen())}";
 
     /// <summary>Polled: pauses the monitor a full-screen window covers, or everything for an exclusive full-screen game.</summary>
     private void CheckFullscreen()
