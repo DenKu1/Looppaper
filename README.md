@@ -21,8 +21,8 @@ No admin rights and no .NET install needed.
 
    This installs Looppaper to `%LOCALAPPDATA%\Programs\Looppaper`, asks where it should keep its files
    (the usual Windows folders, or everything in the install folder; see [Folder layout](#folder-layout)),
-   registers it to start when you sign in, and starts it. Add `-Layout Standard` or `-Layout Portable`
-   to skip the question.
+   asks whether to show the [tray icon](#tray-icon), registers it to start when you sign in, and starts it.
+   Add `-Layout Standard` or `-Layout Portable` and `-TrayIcon On` or `-TrayIcon Off` to skip the questions.
 3. Put an `.mp4` video, or `.jpg` / `.jpeg` / `.png` pictures, into the collection folder:
    `Pictures\Looppaper` (standard) or `collection` inside the install folder (everything in one folder).
    If the folder has a video (and video is enabled) it plays looped, muted by default; otherwise the
@@ -142,6 +142,7 @@ in the log); a file that is not valid JSON is ignored and the defaults are used.
   "maxPictureSizeMb": 50,       // larger pictures are skipped (cap 200)
   "checkForUpdates": false,     // true = check GitHub once at start for a newer release and log it (never downloads)
   "watchdog": true,             // restore the Windows wallpaper (and restart after a crash) if Looppaper ends unexpectedly
+  "trayIcon": true,             // notification-area icon with a menu (next / previous picture, pause, folders, stop); see "Tray icon"
   "ffmpegPath": null,          // ffmpeg.exe or its folder; null = search PATH, winget, scoop, Chocolatey (only needed for conversion and compression)
   "video": {
     "enabled": true,            // false = always show pictures
@@ -183,6 +184,12 @@ Looppaper.exe [options]
   --volume <0-100>       Video volume (0 = muted)
   --compress <file>      Compress a video for the wallpaper now, with progress (needs ffmpeg)
   --stop                 Stop the running instance and restore the wallpaper
+  --pause                Pause the running wallpaper (video and slideshow) until --resume
+  --resume               Resume after --pause
+  --next                 Show the next slideshow picture now
+  --previous             Go back to the previous slideshow picture
+  --status               Show what the running wallpaper is doing
+  --tray-icon <on|off>   Show or hide the notification-area icon (saved in config.json)
   --install-startup      Start Looppaper when you sign in (current user)
   --uninstall-startup    Remove Looppaper from sign-in startup
   --we-list              List the Wallpaper Engine Workshop wallpapers downloaded on this PC
@@ -197,6 +204,35 @@ Looppaper.exe [options]
 Command-line options override the config file for that run only; the file is not changed.
 
 Commands such as `--help` and `--stop` print their result in the terminal you run them from. Starting the wallpaper from a terminal hands it to a background copy and returns straight away, so you can close the terminal. Started from Explorer or at sign-in no console window appears (Windows 11 24H2 and later; older Windows may flash a console window for a moment).
+
+## Controlling the running wallpaper
+
+There is no settings window, but the running wallpaper takes a few commands. Run them from a terminal,
+a shortcut or a script; each prints what the wallpaper is doing afterwards:
+
+```
+Looppaper.exe --status      # e.g. "Playing a video." or "Showing a slideshow; paused (automatically: the PC is locked)."
+Looppaper.exe --pause       # pause the video / hold the slideshow until --resume
+Looppaper.exe --resume
+Looppaper.exe --next        # slideshow: show the next picture now (the interval starts again)
+Looppaper.exe --previous    # slideshow: go back to the previous picture (also when shuffled)
+```
+
+`--pause` is your own pause, next to the automatic ones (full-screen app, locked, battery saver, ...):
+`--resume` lifts only yours, so the wallpaper still waits while, say, a game is full screen. It lasts until
+`--resume` or until Looppaper restarts. `--next` / `--previous` while paused switch the picture and stay paused;
+they do nothing for a video or in single-picture mode, and say so. If Looppaper is not running the commands
+say that and exit with code 3.
+
+### Tray icon
+
+Looppaper shows an icon in the notification area (a play sign, or pause bars while paused; hover it to see
+what is shown). Left- or right-click it for a menu: next / previous picture, pause / resume, open the
+collection folder, edit `config.json`, open the log, and stop Looppaper. The installer asks whether you want
+it (`-TrayIcon On` or `-TrayIcon Off` skips the question). Change it later with
+`Looppaper.exe --tray-icon off` (or `on`), or `"trayIcon"` in `config.json`; a running Looppaper follows
+straight away. Windows 11 may first put a new icon in the hidden-icons area (`^`); drag it onto the taskbar
+to keep it visible.
 
 ## Video compression
 

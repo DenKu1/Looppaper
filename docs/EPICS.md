@@ -157,7 +157,7 @@ registered window message to its hidden control window and print what it is doin
       `--tray-icon on|off` changes it later and a running Looppaper follows straight away): left or right click opens a
       menu with next / previous picture, pause / resume, open the collection folder, edit config.json, open the log and
       stop Looppaper; the icon shows play or pause and its tooltip what is shown; it comes back after Explorer restarts.
-- [ ] 7.4 Tests and README.
+- [x] 7.4 Tests and README.
 
 ## Epic 11 — Make the repository public
 
