@@ -1,3 +1,4 @@
+using Looppaper.Core.Compression;
 using Looppaper.Core.Configuration;
 using Looppaper.Core.Logging;
 using Looppaper.Core.Media;
@@ -113,43 +114,47 @@ internal sealed class WallpaperApp : IWallpaperWindowHandler
         return true;
     }
 
-    /// <summary>The configured video if it is usable, otherwise the first .mp4 in the collection.</summary>
+    /// <summary>
+    /// The configured video if it is usable, otherwise the first .mp4 in the collection. Videos above the
+    /// size limit are not played (see <see cref="OversizedVideoFlow"/>).
+    /// </summary>
     private string? FindVideo()
     {
-        var maxMb = _config.Video.MaxFileSizeMb;
+        var choice = VideoChooser.Choose(VideoCandidates(), _config.Video.MaxFileSizeMb, key => OversizedVideoFlow.FindCompressed(key, _config, _log), _log);
+        if (choice.PlayPath is null)
+        {
+            _log.Info(choice.Oversized is null ? "No video in the collection; showing pictures" : "No video within the size limit; showing pictures");
+        }
+
+        return choice.PlayPath;
+    }
+
+    /// <summary>The configured video (when it exists), then every .mp4 in the collection.</summary>
+    private IEnumerable<VideoFileKey> VideoCandidates()
+    {
         var configured = _config.ResolveVideo();
         if (configured is not null)
         {
-            string? problem = null;
-            if (!MediaScanner.IsSupported(configured, MediaKind.Video))
+            var key = MediaScanner.IsSupported(configured, MediaKind.Video) ? VideoFileKey.TryFromFile(configured) : null;
+            if (key is not null)
             {
-                problem = "is not an .mp4 file";
+                yield return key;
             }
-            else if (!File.Exists(configured))
+            else
             {
-                problem = "does not exist";
+                var problem = MediaScanner.IsSupported(configured, MediaKind.Video) ? "does not exist" : "is not an .mp4 file";
+                _log.Warn($"Configured video {configured} {problem}; looking for another video in the collection");
             }
-            else if (new FileInfo(configured).Length > maxMb * MediaScanner.BytesPerMb)
-            {
-                problem = $"is {new FileInfo(configured).Length / (double)MediaScanner.BytesPerMb:F1} MB, above the {maxMb} MB video limit, so it will not be played";
-            }
-
-            if (problem is null)
-            {
-                return configured;
-            }
-
-            _log.Warn($"Configured video {configured} {problem}; looking for another video in the collection");
         }
 
-        var videos = new MediaScanner(_log).Scan(_config.ResolveCollectionFolder(), MediaKind.Video, maxMb);
-        if (videos.Count == 0)
+        // No size limit here: oversized videos are reported (and may have a compressed copy) by VideoChooser.
+        foreach (var path in new MediaScanner(_log).Scan(_config.ResolveCollectionFolder(), MediaKind.Video, int.MaxValue))
         {
-            _log.Info("No video in the collection; showing pictures");
-            return null;
+            if (VideoFileKey.TryFromFile(path) is { } key)
+            {
+                yield return key;
+            }
         }
-
-        return videos[0];
     }
 
     private void StartPictures()

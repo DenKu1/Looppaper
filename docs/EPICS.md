@@ -81,7 +81,7 @@ Engine itself is needed for converting scene wallpapers.
 Videos are limited to 100 MB. Instead of only refusing a larger one, offer to compress it — always
 asking first.
 
-- [ ] 9.1 Detect: when a chosen video (config, `--video`, collection folder or a Wallpaper Engine item) is over
+- [x] 9.1 Detect: when a chosen video (config, `--video`, collection folder or a Wallpaper Engine item) is over
       100 MB, don't play it; log it and fall back to pictures (current behaviour).
 - [ ] 9.2 Notify and ask first: show the file name, its size and the estimated result, and ask before
       compressing. Console prompt when run from a terminal (`--compress <file>`, or the `--we-set` flow asks
