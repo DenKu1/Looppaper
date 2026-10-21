@@ -27,7 +27,15 @@ internal static class Program
             return 0;
         }
 
+        var layout = AppPaths.Configure(Path.GetDirectoryName(Environment.ProcessPath));
         var log = new RollingFileLog(AppPaths.LogFile);
+        if (layout == InstallLayout.Portable && options.ConfigPath is null)
+        {
+            foreach (var line in PortableMigration.Run(AppPaths.PortableRoot!, StandardLocations.Current(), log))
+            {
+                ConsoleOutput.WriteLine(line);
+            }
+        }
         if (options.Stop)
         {
             return Stop(log);
@@ -58,7 +66,7 @@ internal static class Program
             return OversizedVideoFlow.RunCompressCommand(options.Compress, config, log);
         }
 
-        log.Info($"Looppaper {typeof(Program).Assembly.GetName().Version} starting on {Environment.OSVersion.VersionString}; config {configPath}; overrides {options}");
+        log.Info($"Looppaper {typeof(Program).Assembly.GetName().Version} starting on {Environment.OSVersion.VersionString}; {layout} layout; config {configPath}; overrides {options}");
         log.Info($"Collection {config.ResolveCollectionFolder()}, mode {config.Mode}, interval {config.IntervalSeconds}s, scaling {config.Scaling}");
 
         // Started from a terminal: run the wallpaper as a background copy so the terminal is free again.

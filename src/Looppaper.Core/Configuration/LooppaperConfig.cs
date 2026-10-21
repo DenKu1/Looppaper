@@ -24,13 +24,16 @@ public enum ScalingMode
 /// <summary>Contents of <c>config.json</c>. Defaults here are what a first run writes.</summary>
 public sealed class LooppaperConfig
 {
-    public const string DefaultCollectionFolder = @"%USERPROFILE%\Pictures\Looppaper";
     public const int DefaultIntervalSeconds = 300;
     public const int MinIntervalSeconds = 5;
     public const int MaxIntervalSeconds = 7 * 24 * 60 * 60;
     public const int DefaultMaxPictureSizeMb = 50;
     public const int MaxPictureSizeCapMb = 200;
     public const string DefaultBackgroundColor = "#000000";
+
+    /// <summary>`collection` inside the install folder (portable layout) or Pictures\Looppaper (standard layout).</summary>
+    public static string DefaultCollectionFolder =>
+        AppPaths.Layout == InstallLayout.Portable ? AppPaths.PortableCollectionFolder : AppPaths.Standard.CollectionFolder;
 
     public string CollectionFolder { get; set; } = DefaultCollectionFolder;
 
@@ -63,8 +66,8 @@ public sealed class LooppaperConfig
     /// <summary>Where to find Wallpaper Engine's Workshop downloads and install (Epic 8); null fields are searched for.</summary>
     public WallpaperEngineConfig WallpaperEngine { get; set; } = new();
 
-    /// <summary>Absolute collection folder with environment variables expanded.</summary>
-    public string ResolveCollectionFolder() => AppPaths.ExpandPath(CollectionFolder);
+    /// <summary>Absolute collection folder with environment variables expanded; a relative path is inside the install folder (portable layout).</summary>
+    public string ResolveCollectionFolder() => AppPaths.ResolveDataPath(CollectionFolder);
 
     /// <summary>Absolute path of the configured single picture, or null when none is set.</summary>
     public string? ResolvePicture() => ResolveInCollection(Picture);

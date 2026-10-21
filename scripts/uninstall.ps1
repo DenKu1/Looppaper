@@ -3,23 +3,31 @@
     Removes Looppaper for the current user.
 
 .DESCRIPTION
-    Stops Looppaper (restoring your normal wallpaper), removes the sign-in startup entry and
-    deletes %LOCALAPPDATA%\Programs\Looppaper. Your pictures and videos are never touched.
-    Settings and logs are kept unless -RemoveSettings is given.
+    Stops Looppaper (restoring your normal wallpaper), removes the sign-in startup entry, and deletes
+    the program, its cache and its logs. Your pictures and videos are never deleted unless you add
+    -RemoveCollection, and your settings are kept unless you add -RemoveSettings.
+
+    Portable layout (the default install): the install folder keeps config.json and collection\
+    afterwards; it is removed only if nothing of yours is left in it.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\uninstall.ps1 -RemoveSettings
 #>
 [CmdletBinding()]
 param(
-    # Also delete %APPDATA%\Looppaper (config.json) and %LOCALAPPDATA%\Looppaper (logs).
-    [switch]$RemoveSettings
+    # Also delete config.json and the compression records (and, for the standard layout, %APPDATA%\Looppaper).
+    [switch]$RemoveSettings,
+
+    # Also delete the collection folder inside the install folder (portable layout). Never touches Pictures.
+    [switch]$RemoveCollection,
+
+    [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'Programs\Looppaper')
 )
 
 $ErrorActionPreference = 'Stop'
 
-$installDir = Join-Path $env:LOCALAPPDATA 'Programs\Looppaper'
-$exe = Join-Path $installDir 'Looppaper.exe'
+$exe = Join-Path $InstallDir 'Looppaper.exe'
+$portable = Test-Path (Join-Path $InstallDir 'looppaper.portable')
 
 if (Test-Path $exe) {
     Start-Process -FilePath $exe -ArgumentList '--stop' -Wait -WindowStyle Hidden
@@ -29,18 +37,47 @@ if (Test-Path $exe) {
     Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'Looppaper' -ErrorAction SilentlyContinue
 }
 
-if (Test-Path $installDir) {
-    Remove-Item -LiteralPath $installDir -Recurse -Force
-    Write-Host "Removed $installDir"
-}
-
-if ($RemoveSettings) {
-    foreach ($dir in @((Join-Path $env:APPDATA 'Looppaper'), (Join-Path $env:LOCALAPPDATA 'Looppaper'))) {
-        if (Test-Path $dir) {
-            Remove-Item -LiteralPath $dir -Recurse -Force
-            Write-Host "Removed $dir"
-        }
+function Remove-IfPresent([string]$Path) {
+    if (Test-Path -LiteralPath $Path) {
+        Remove-Item -LiteralPath $Path -Recurse -Force
+        Write-Host "Removed $Path"
     }
 }
 
-Write-Host 'Looppaper uninstalled. Your pictures and videos were left in place.'
+# Program files, cache and logs are always removed.
+foreach ($name in @('Looppaper.exe', 'looppaper.portable', 'cache', 'logs')) {
+    Remove-IfPresent (Join-Path $InstallDir $name)
+}
+
+if ($RemoveSettings) {
+    Remove-IfPresent (Join-Path $InstallDir 'config.json')
+    Remove-IfPresent (Join-Path $InstallDir 'compression.json')
+}
+
+if ($RemoveCollection) {
+    Remove-IfPresent (Join-Path $InstallDir 'collection')
+}
+
+if (-not $portable) {
+    # Standard layout: cache and logs live in %LOCALAPPDATA%\Looppaper, settings in %APPDATA%\Looppaper.
+    $local = Join-Path $env:LOCALAPPDATA 'Looppaper'
+    Remove-IfPresent (Join-Path $local 'cache')
+    Remove-IfPresent (Join-Path $local 'logs')
+    if ($RemoveSettings) {
+        Remove-IfPresent $local
+        Remove-IfPresent (Join-Path $env:APPDATA 'Looppaper')
+    }
+}
+
+if ((Test-Path $InstallDir) -and -not (Get-ChildItem -LiteralPath $InstallDir -Force | Select-Object -First 1)) {
+    Remove-Item -LiteralPath $InstallDir -Force
+    Write-Host "Removed $InstallDir"
+} elseif (Test-Path $InstallDir) {
+    Write-Host "Kept your files in $InstallDir (settings and/or collection)."
+}
+
+if ($RemoveCollection) {
+    Write-Host 'Looppaper uninstalled.'
+} else {
+    Write-Host 'Looppaper uninstalled. Your pictures and videos were left in place.'
+}

@@ -19,15 +19,42 @@ No admin rights and no .NET install needed.
    powershell -ExecutionPolicy Bypass -File .\install.ps1
    ```
 
-   This copies `Looppaper.exe` to `%LOCALAPPDATA%\Programs\Looppaper`, creates
-   `%USERPROFILE%\Pictures\Looppaper`, registers Looppaper to start when you sign in, and starts it.
-3. Put an `.mp4` video, or `.jpg` / `.jpeg` / `.png` pictures, into `Pictures\Looppaper`.
+   This installs Looppaper to `%LOCALAPPDATA%\Programs\Looppaper` with **everything in that one folder**
+   (see [Folder layout](#folder-layout)), registers it to start when you sign in, and starts it.
+3. Put an `.mp4` video, or `.jpg` / `.jpeg` / `.png` pictures, into the `collection` folder inside the
+   install folder.
    If the folder has a video (and video is enabled) it plays looped, muted by default; otherwise the
    pictures are shown. Looppaper rescans the folder at every slideshow step; after adding a video or
    editing `config.json`, restart it (`Looppaper.exe --stop`, then start it again).
 
-To remove it: `powershell -ExecutionPolicy Bypass -File .\uninstall.ps1` (add `-RemoveSettings` to
-also delete the config and logs). Your pictures and videos are never deleted.
+To remove it: `powershell -ExecutionPolicy Bypass -File .\uninstall.ps1`. It removes the program,
+cache and logs; add `-RemoveSettings` to also delete `config.json`, and `-RemoveCollection` to delete
+the `collection` folder. Without those, your settings and your pictures and videos are kept.
+
+### Folder layout
+
+**Portable (default).** Everything lives next to `Looppaper.exe`:
+
+```
+%LOCALAPPDATA%\Programs\Looppaper\
+  Looppaper.exe
+  looppaper.portable      (empty marker file: "keep everything in this folder")
+  config.json             settings
+  collection\             your pictures and videos
+  cache\                  converted / compressed videos
+  compression.json        which videos already have a compressed copy
+  logs\looppaper.log
+```
+
+The marker file is what switches this on, so any folder with `Looppaper.exe` and an empty
+`looppaper.portable` works the same way (`install.ps1 -InstallDir D:\Apps\Looppaper` installs there).
+On its first start in a portable folder, Looppaper copies the settings, the cached videos and the
+pictures/videos of the old `Pictures\Looppaper` folder from an earlier standard install (nothing is
+moved or deleted).
+
+**Standard** (`install.ps1 -Layout Standard`, and any `Looppaper.exe` without the marker, e.g. a
+`publish\` build). The usual Windows folders: `config.json` in `%APPDATA%\Looppaper`, `cache\`,
+`logs\` and `compression.json` in `%LOCALAPPDATA%\Looppaper`, collection in `%USERPROFILE%\Pictures\Looppaper`.
 
 ## How it works
 
@@ -64,15 +91,17 @@ which costs far more CPU and RAM (a 4500x3000 test video used ~150% of a core an
 videos at or below your monitor resolution. Single-file compression keeps the exe at ~34 MB instead
 of ~65 MB but adds ~15 MB of private memory; build with `-p:EnableCompressionInSingleFile=false` to
 trade disk for RAM.
+
 ## Configuration
 
-On first run Looppaper writes `%APPDATA%\Looppaper\config.json` with the defaults below. The file
+On first run Looppaper writes `config.json` (in the install folder, or `%APPDATA%\Looppaper` in the
+standard layout) with the defaults below. Relative paths in it are relative to the install folder. The file
 may contain `//` and `/* */` comments and trailing commas. Invalid values are clamped (with a warning
 in the log); a file that is not valid JSON is ignored and the defaults are used.
 
 ```jsonc
 {
-  "collectionFolder": "%USERPROFILE%\\Pictures\\Looppaper", // pictures and videos
+  "collectionFolder": "collection", // pictures and videos; standard layout: "%USERPROFILE%\\Pictures\\Looppaper"
   "mode": "slideshow",          // "slideshow" or "single"
   "picture": null,              // single mode: file name in the collection, or a full path
   "intervalSeconds": 300,       // slideshow interval, 5..604800
@@ -105,7 +134,7 @@ available it is the wallpaper; `mode`, `picture`, `intervalSeconds` and `shuffle
 ```
 Looppaper.exe [options]
 
-  --config <path>        Use this config file instead of %APPDATA%\Looppaper\config.json
+  --config <path>        Use this config file instead of config.json in the install folder
   --folder <path>        Collection folder with pictures and videos
   --picture <file>       Show one picture (file name in the collection or full path); implies --mode single and --no-video
   --interval <seconds>   Slideshow interval (5..604800)
