@@ -144,6 +144,28 @@ then `powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Ve
 
 Check a download with `Get-FileHash Looppaper-0.2.0-win-x64.zip` against the `.sha256` file.
 
+### winget
+
+`packaging/winget/templates/` holds the manifest template (schema 1.6: version, installer and en-US
+default-locale files) for the package `DenKu1.Looppaper`: a `zip` installer with the nested portable
+`Looppaper.exe`, exposed as the command `looppaper`. Portable packages install per user (no admin)
+under `%LOCALAPPDATA%\Microsoft\WinGet\Packages`. After a release, fill it in with:
+
+```powershell
+.\packaging\winget\New-WingetManifest.ps1 -Version 0.2.0 -Validate   # -> packaging\winget\out\manifests\d\DenKu1\Looppaper\0.2.0
+```
+
+It takes the SHA-256 from the release's `.sha256` file (or `-ZipPath` / `-Sha256`) and runs
+`winget validate`. Nothing is submitted: publishing means opening a pull request on
+[microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) yourself (e.g. `wingetcreate submit <folder>`).
+
+> **winget needs a publicly downloadable installer URL.** While this repository is private its release
+> assets cannot be downloaded anonymously, so the winget package cannot work (and the script cannot
+> fetch the `.sha256`) until the repository, or at least its releases, are public.
+
+A winget install does not run `install.ps1`: run `looppaper --install-startup` once to start it at sign-in,
+and `looppaper --stop` then `looppaper --uninstall-startup` before `winget uninstall DenKu1.Looppaper`.
+
 ## Build
 
 Requires the .NET 8 SDK (or newer).

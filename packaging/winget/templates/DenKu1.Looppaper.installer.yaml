@@ -1,0 +1,22 @@
+# Looppaper winget installer manifest (template). Filled by packaging/winget/New-WingetManifest.ps1.
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+
+PackageIdentifier: DenKu1.Looppaper
+PackageVersion: __VERSION__
+MinimumOSVersion: 10.0.17763.0
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: Looppaper.exe
+    PortableCommandAlias: looppaper
+# No "Scope": winget rejects it for portable installers. Portable packages install per user by default
+# (%LOCALAPPDATA%\Microsoft\WinGet\Packages, alias in %LOCALAPPDATA%\Microsoft\WinGet\Links), no admin needed.
+Commands:
+  - looppaper
+ReleaseDate: __RELEASE_DATE__
+Installers:
+  - Architecture: x64
+    InstallerUrl: __INSTALLER_URL__
+    InstallerSha256: __INSTALLER_SHA256__
+ManifestType: installer
+ManifestVersion: 1.6.0

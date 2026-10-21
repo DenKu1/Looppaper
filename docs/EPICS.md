@@ -99,7 +99,10 @@ asking first.
 
 - [x] 6.1 Release workflow: pushing a tag `vX.Y.Z` builds, tests and publishes with the tag's version, packs
       `Looppaper-X.Y.Z-win-x64.zip` + `.sha256` and creates a GitHub Release (`.github/workflows/release.yml`).
-- [ ] 6.2 winget manifest template + fill script (`packaging/winget/`).
+- [x] 6.2 winget manifest template (schema 1.6, zip + nested portable exe, alias `looppaper`) and
+      `packaging/winget/New-WingetManifest.ps1` to fill version / URL / SHA-256 from a release. Nothing is
+      submitted to microsoft/winget-pkgs. winget needs a publicly downloadable installer URL, so it cannot
+      work while the repository is private.
 - [ ] 6.3 Optional code signing in the release workflow.
 - [ ] 6.4 Opt-in update check (`checkForUpdates`, `--check-update`).
 

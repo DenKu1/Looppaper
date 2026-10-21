@@ -484,6 +484,7 @@ $RECYCLE.BIN/
 # Looppaper
 publish/
 artifacts/
+packaging/winget/out/
 .claude/
 CLAUDE.md
 !src/Looppaper/Properties/PublishProfiles/win-x64.pubxml
