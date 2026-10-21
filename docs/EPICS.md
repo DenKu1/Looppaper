@@ -92,7 +92,7 @@ asking first.
       computed from the duration, scale down to screen resolution if larger, hardware encoder (NVENC / AMF / QSV)
       with CPU fallback, drop audio only if needed to fit. Write to `%LOCALAPPDATA%\Looppaper\cache`, never
       overwrite the original. Show progress in the console.
-- [ ] 9.4 Use the result: verify it is under 100 MB, then play it and record the mapping so it is not
+- [x] 9.4 Use the result: verify it is under 100 MB, then play it and record the mapping so it is not
       compressed again.
 - [ ] 9.5 Tests and README.
 ## Epic 6 — Distribution

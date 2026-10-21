@@ -65,6 +65,56 @@ public class CompressionStoreTests
         Assert.False(store.IsDeclined(Video));
     }
 
+    [Fact]
+    public void RecordsTheCompressedCopy()
+    {
+        using var dir = new TempDir();
+        var file = Path.Combine(dir.Path, "c.json");
+        var copy = dir.File("big-0123456789.mp4", 90);
+        var store = new CompressionStore(file, new MemoryLog());
+        store.SetDeclined(Video, true);
+
+        store.RecordCompressed(Video, copy);
+
+        var reopened = new CompressionStore(file, new MemoryLog());
+        Assert.Equal(copy, reopened.FindCompressed(Video, 100));
+        Assert.False(reopened.IsDeclined(Video));
+        Assert.Null(reopened.FindCompressed(Video with { SizeBytes = 5 }, 100));
+    }
+
+    [Fact]
+    public void ForgetsACopyThatIsGoneOrTooLarge()
+    {
+        using var dir = new TempDir();
+        var store = new CompressionStore(Path.Combine(dir.Path, "c.json"), new MemoryLog());
+        var copy = dir.File("copy.mp4", 200);
+        store.RecordCompressed(Video, copy);
+
+        Assert.Null(store.FindCompressed(Video, 100)); // larger than the (lowered) limit
+        File.WriteAllBytes(copy, new byte[50]);
+        Assert.Null(store.FindCompressed(Video, 100)); // the record was dropped
+
+        store.RecordCompressed(Video, copy);
+        File.Delete(copy);
+        var log = new MemoryLog();
+        Assert.Null(new CompressionStore(store.FilePath, log).FindCompressed(Video, 100));
+        Assert.Contains(log.Warnings, w => w.Contains("is gone", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CompressedCopyIsPlayedInsteadOfTheOriginal()
+    {
+        using var dir = new TempDir();
+        var store = new CompressionStore(Path.Combine(dir.Path, "c.json"), new MemoryLog());
+        var copy = dir.File("copy.mp4", 1024);
+        store.RecordCompressed(Video, copy);
+
+        var choice = VideoChooser.Choose([Video], 100, k => store.FindCompressed(k, VideoSizeLimit.Bytes(100)), new MemoryLog());
+
+        Assert.Equal(copy, choice.PlayPath);
+        Assert.Null(choice.Oversized);
+    }
+
     [Theory]
     [InlineData("not json at all")]
     [InlineData("{\"entries\": 5}")]

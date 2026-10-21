@@ -65,8 +65,9 @@ internal static class OversizedVideoFlow
         return offer is not null && Ask(offer, log, mode) == true ? Compress(offer, log, mode, cancellationToken) : null;
     }
 
-    /// <summary>The compressed copy of an oversized video, or null when there is none.</summary>
-    public static string? FindCompressed(VideoFileKey key, LooppaperConfig config, ILog log) => null;
+    /// <summary>The recorded compressed copy of an oversized video (still there and within the limit), or null.</summary>
+    public static string? FindCompressed(VideoFileKey key, LooppaperConfig config, ILog log) =>
+        Store(log).FindCompressed(key, VideoSizeLimit.Bytes(config.Video.MaxFileSizeMb));
 
     /// <summary><c>--compress &lt;file&gt;</c>: shows the estimate, always asks, compresses on yes. Returns the exit code.</summary>
     public static int RunCompressCommand(string file, LooppaperConfig config, ILog log)
@@ -88,7 +89,7 @@ internal static class OversizedVideoFlow
 
         if (FindCompressed(key, config, log) is { } existing)
         {
-            ConsoleOutput.WriteLine($"{key.FileName} is already compressed: {existing}. Looppaper plays that copy instead.");
+            ConsoleOutput.WriteLine($"{key.FileName} is already compressed: {existing} ({VideoSizeLimit.FormatMb(new FileInfo(existing).Length)}). Looppaper plays that copy instead.");
             return 0;
         }
 
@@ -247,6 +248,12 @@ internal static class OversizedVideoFlow
             }
 
             return null;
+        }
+
+        Store(log).RecordCompressed(offer.Key, result.OutputPath!);
+        if (console)
+        {
+            ConsoleOutput.WriteLine($"Looppaper now plays this copy whenever {offer.Key.FileName} is the wallpaper video. If Looppaper is running, restart it to switch (Looppaper.exe --stop, then start it).");
         }
 
         return result.OutputPath;

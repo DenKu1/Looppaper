@@ -6,7 +6,8 @@ namespace Looppaper.Core.Compression;
 
 /// <summary>
 /// Remembers per video file (path + size + last-write time, see <see cref="VideoFileKey"/>) what the
-/// person answered when offered compression, so a "no" is not asked again on every start. Kept in a
+/// person answered when offered compression, so a "no" is not asked again on every start, and which
+/// compressed copy in the cache replaces it, so it is not compressed again. Kept in a
 /// small JSON file (<see cref="AppPaths.CompressionStateFile"/>). Every call reads and writes the
 /// file, so the terminal command and the background wallpaper see each other's answers. A missing or
 /// broken file counts as empty; errors are logged, never thrown.
@@ -40,6 +41,48 @@ public sealed class CompressionStore
     public bool WasToldFfmpegMissing(VideoFileKey key) => Find(Load(), key)?.FfmpegMissingNotified == true;
 
     public void SetToldFfmpegMissing(VideoFileKey key) => Update(key, e => e.FfmpegMissingNotified = true);
+
+    /// <summary>
+    /// The compressed copy recorded for this file version when it still exists and is within
+    /// <paramref name="limitBytes"/>; otherwise null (and a stale record is dropped).
+    /// </summary>
+    public string? FindCompressed(VideoFileKey key, long limitBytes)
+    {
+        var copy = Find(Load(), key)?.Compressed;
+        if (copy is null)
+        {
+            return null;
+        }
+
+        long size;
+        try
+        {
+            var info = new FileInfo(copy);
+            size = info.Exists ? info.Length : -1;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            size = -1;
+        }
+
+        if (size > 0 && size <= limitBytes)
+        {
+            return copy;
+        }
+
+        _log.Warn(size < 0
+            ? $"Compressed copy {copy} of {key.FullPath} is gone; forgetting it"
+            : $"Compressed copy {copy} of {key.FullPath} is {VideoSizeLimit.FormatMb(size)}, not within the limit; forgetting it");
+        Update(key, e => e.Compressed = null);
+        return null;
+    }
+
+    /// <summary>Records <paramref name="compressedPath"/> as the copy to play instead of this file version.</summary>
+    public void RecordCompressed(VideoFileKey key, string compressedPath) => Update(key, e =>
+    {
+        e.Compressed = compressedPath;
+        e.Declined = false;
+    });
 
     private static Entry? Find(StoreFile store, VideoFileKey key) =>
         store.Entries.FirstOrDefault(e => e.ToKey().Matches(key));
@@ -125,7 +168,10 @@ public sealed class CompressionStore
 
         public bool FfmpegMissingNotified { get; set; }
 
-        public bool IsEmpty => !Declined && !FfmpegMissingNotified;
+        /// <summary>Full path of the compressed copy in the cache folder.</summary>
+        public string? Compressed { get; set; }
+
+        public bool IsEmpty => !Declined && !FfmpegMissingNotified && Compressed is null;
 
         public VideoFileKey ToKey() => new(Path, Size, LastWriteUtcTicks);
     }
