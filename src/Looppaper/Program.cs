@@ -29,6 +29,11 @@ internal static class Program
 
         var layout = AppPaths.Configure(Path.GetDirectoryName(Environment.ProcessPath));
         var log = new RollingFileLog(AppPaths.LogFile);
+        if (options.WatchdogFor is { } watchedPid)
+        {
+            return Watchdog.Run(watchedPid, args, log);
+        }
+
         if (layout == InstallLayout.Portable && options.ConfigPath is null)
         {
             foreach (var line in PortableMigration.Run(AppPaths.PortableRoot!, StandardLocations.Current(), log))
@@ -87,6 +92,11 @@ internal static class Program
             log.Info("Another Looppaper is already running; exiting");
             ConsoleOutput.WriteLine("Looppaper is already running. Use --stop to stop it.");
             return 3;
+        }
+
+        if (config.Watchdog && !options.Watched)
+        {
+            Watchdog.Start(args, log);
         }
 
         ResourceSaver.Apply(log);

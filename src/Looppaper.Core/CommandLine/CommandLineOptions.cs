@@ -87,10 +87,16 @@ public sealed class CommandLineOptions
     /// <summary>Internal: set on the copy that a terminal launch starts in the background. Not shown in help.</summary>
     public bool Background { get; set; }
 
+    /// <summary>Internal: run as the crash watchdog of the wallpaper process with this id. Not shown in help.</summary>
+    public int? WatchdogFor { get; set; }
+
+    /// <summary>Internal: started again by the watchdog, which keeps watching it; do not start another one.</summary>
+    public bool Watched { get; set; }
+
     public List<string> Errors { get; } = [];
 
     /// <summary>True when the invocation performs a command and exits instead of running the wallpaper.</summary>
-    public bool IsCommand => Help || Stop || InstallStartup || UninstallStartup || IsWallpaperEngineCommand || Compress is not null || CheckUpdate;
+    public bool IsCommand => WatchdogFor is not null || Help || Stop || InstallStartup || UninstallStartup || IsWallpaperEngineCommand || Compress is not null || CheckUpdate;
 
     /// <summary>True for the Wallpaper Engine library commands (<c>--we-*</c>).</summary>
     public bool IsWallpaperEngineCommand => WeList || WeSet is not null || WePick || WeConvert is not null;

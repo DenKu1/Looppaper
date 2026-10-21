@@ -52,7 +52,7 @@ Pausing covers both the video (Media Engine paused, so the GPU decoder idles) an
 - [x] 2.5 Hot-reload of `config.json` and a collection folder watcher: edits to the config apply without a restart
       (command-line overrides still win); pictures or videos added, changed or removed in the collection folder are
       picked up straight away (debounced).
-- [ ] 2.6 Crash watchdog: a small `--watchdog` copy waits for the wallpaper process; if it ends without a clean stop
+- [x] 2.6 Crash watchdog: a small `--watchdog` copy waits for the wallpaper process; if it ends without a clean stop
       (crash, killed) the original Windows wallpaper is re-applied, and after a crash Looppaper is started again (at
       most 3 times in 10 minutes). Config `watchdog` (default true).
 - [ ] 2.7 Tests and README.

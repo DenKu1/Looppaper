@@ -60,6 +60,12 @@ public sealed class LooppaperConfig
     /// </summary>
     public bool CheckForUpdates { get; set; }
 
+    /// <summary>
+    /// Run a small watchdog process next to the wallpaper: if the wallpaper ends without a clean stop, it puts the
+    /// Windows wallpaper back, and after a crash it starts Looppaper again (at most 3 times in 10 minutes).
+    /// </summary>
+    public bool Watchdog { get; set; } = true;
+
     public VideoConfig Video { get; set; } = new();
 
     /// <summary>When to pause the video and the slideshow because nobody can see them (Epic 2).</summary>

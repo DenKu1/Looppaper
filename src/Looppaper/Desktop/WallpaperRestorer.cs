@@ -39,6 +39,20 @@ internal static unsafe class WallpaperRestorer
             return;
         }
 
+        Apply(log);
+    }
+
+    /// <summary>Re-applies the original wallpaper every time it is called (the watchdog may need it more than once).</summary>
+    public static void Reapply(ILog log)
+    {
+        if (_originalPath is not null)
+        {
+            Apply(log);
+        }
+    }
+
+    private static void Apply(ILog log)
+    {
         fixed (char* path = _originalPath)
         {
             if (User32.SystemParametersInfo(User32.SPI_SETDESKWALLPAPER, 0, path, User32.SPIF_UPDATEINIFILE))

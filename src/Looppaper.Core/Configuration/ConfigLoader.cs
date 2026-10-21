@@ -208,6 +208,13 @@ public static class ConfigLoader
                     }
 
                     break;
+                case "watchdog":
+                    if (ReadBool(value, name, log, out var watchdog))
+                    {
+                        config.Watchdog = watchdog;
+                    }
+
+                    break;
                 case "ffmpegpath":
                     if (ReadString(value, name, log, allowNull: true, out var ffmpeg))
                     {

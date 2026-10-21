@@ -142,6 +142,13 @@ public static class CommandLineParser
                     NoValue();
                     options.Background = true;
                     break;
+                case "watchdog":
+                    options.WatchdogFor = ParseInt(TakeValue(), "--watchdog", "a process id", options);
+                    break;
+                case "watched":
+                    NoValue();
+                    options.Watched = true;
+                    break;
                 case "help":
                     NoValue();
                     options.Help = true;
