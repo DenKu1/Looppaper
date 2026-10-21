@@ -202,6 +202,11 @@ list and type a number. Looppaper writes `"video": { "enabled": true, "file": "<
 `config.json` (your other settings are kept; comments in the file are not) and restarts a running Looppaper
 so the new wallpaper shows straight away. Add `--no-restart` to only change the config.
 
+A video wallpaper over the 100 MB limit goes through the same flow as `--compress`: Looppaper shows the
+size and the estimated result and asks `Compress to fit under 100 MB? [y/N]`. On yes it compresses a copy
+into the cache and sets the video; the original Workshop file is never changed (an existing compressed copy
+is reused without asking).
+
 ### Scene and web wallpapers
 
 Scene and web wallpapers are rendered live by Wallpaper Engine, so Looppaper records them once into a

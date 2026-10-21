@@ -50,7 +50,7 @@ Tasks:
       an ffprobe reader and a runner that reports progress.
 - [x] S.3 Shared cache folder for converted / compressed videos: `%LOCALAPPDATA%\Looppaper\cache` (`AppPaths.CacheDirectory`).
 
-## Epic 8 — Wallpaper Engine library (next up)
+## Epic 8 — Wallpaper Engine library (done)
 
 Use wallpapers the user already has from the Wallpaper Engine Steam Workshop. Looppaper only reads
 the local Workshop downloads (it never downloads or redistributes Workshop content), and Wallpaper
@@ -64,7 +64,7 @@ Engine itself is needed for converting scene wallpapers.
       too large / unsupported): `--we-list`.
 - [x] 8.3 Choose one from the console: `--we-set <number|id>`, plus an interactive picker (`--we-pick`) that
       prompts for a number. Updates `config.json` and restarts a running Looppaper.
-- [ ] 8.4 Video items: use the `.mp4` directly when it is within the 100 MB limit; larger ones go through
+- [x] 8.4 Video items: use the `.mp4` directly when it is within the 100 MB limit; larger ones go through
       Epic 9 (oversized video compression).
 - [x] 8.5 Scene (and web) items: convert to a looping `.mp4` before playing, porting the approach of
       [unio207/wp2video](https://github.com/unio207/wp2video) (MIT): run `wallpaper64.exe -control openWallpaper

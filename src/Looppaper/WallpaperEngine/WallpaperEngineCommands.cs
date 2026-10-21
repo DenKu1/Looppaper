@@ -136,18 +136,64 @@ internal sealed class WallpaperEngineCommands
     {
         switch (item.Status)
         {
-            case WorkshopItemStatus.Ready:
             case WorkshopItemStatus.Converted:
                 return item.PlayableFile;
+            case WorkshopItemStatus.Ready:
             case WorkshopItemStatus.TooLarge:
-                ConsoleOutput.WriteLine($"This video is {WorkshopLibrary.SizeText(item.SizeBytes)}, over the {VideoConfig.MaxFileSizeCapMb} MB video limit, so it cannot be played as it is.");
-                return null;
+                return ResolveVideo(item);
             case WorkshopItemStatus.NeedsConversion:
                 ConsoleOutput.WriteLine($"This is a {WorkshopLibrary.TypeText(item.Type)} wallpaper; it has to be recorded to a video before Looppaper can play it.");
                 return Convert(item, location, ask: true);
             default:
                 ConsoleOutput.WriteLine($"Looppaper cannot play this wallpaper: {item.Note ?? "unsupported"}.");
                 return null;
+        }
+    }
+
+    /// <summary>
+    /// A video item: within the size limit it is used as it is; a larger one goes through the
+    /// oversized-video flow (Epic 9), which uses an existing compressed copy or asks here whether to
+    /// compress it. config.json gets the original path either way: the wallpaper plays the recorded
+    /// compressed copy in its place. Null when the video cannot be played (e.g. the answer was no).
+    /// </summary>
+    private string? ResolveVideo(WorkshopItem item)
+    {
+        if (item.Status == WorkshopItemStatus.TooLarge)
+        {
+            ConsoleOutput.WriteLine($"This video is {WorkshopLibrary.SizeText(item.SizeBytes)}, over the {_config.Video.MaxFileSizeMb} MB video limit, so it has to be compressed before Looppaper plays it.");
+        }
+
+        using var cancel = new CancellationTokenSource();
+        ConsoleCancelEventHandler onCancel = (_, e) =>
+        {
+            e.Cancel = true;
+            cancel.Cancel();
+        };
+        Console.CancelKeyPress += onCancel;
+        try
+        {
+            var playable = OversizedVideoFlow.Resolve(item.FilePath!, _config, _log, OversizedVideoMode.Console, cancel.Token);
+            if (playable is null)
+            {
+                ConsoleOutput.WriteLine("config.json was not changed.");
+                return null;
+            }
+
+            if (!string.Equals(playable, item.FilePath, StringComparison.OrdinalIgnoreCase))
+            {
+                ConsoleOutput.WriteLine($"Looppaper will play the compressed copy: {playable}");
+            }
+
+            return item.FilePath;
+        }
+        catch (OperationCanceledException)
+        {
+            ConsoleOutput.WriteLine("Cancelled; config.json was not changed.");
+            return null;
+        }
+        finally
+        {
+            Console.CancelKeyPress -= onCancel;
         }
     }
 
